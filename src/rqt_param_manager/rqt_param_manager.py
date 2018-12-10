@@ -315,7 +315,7 @@ class RqtParamManagerPlugin(Plugin):
             else:
                 param = self._params[n]
                 upd_num += 1
-
+                upd_val = int(upd_val) # TMP
                 try:
                     param_nm = param[KEY_CONFFILE_PARAM_NM]
 
