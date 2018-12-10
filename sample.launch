@@ -1,0 +1,3 @@
+<launch>
+<node name="livecamera_pm" pkg="rqt_param_manager" type="rqt_param_manager" args="_conffile:=$(optenv ROS_WS)/src/rqt_param_manager/sample.json" />
+</launch>

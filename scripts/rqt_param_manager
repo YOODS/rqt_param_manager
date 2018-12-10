@@ -1,0 +1,10 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+
+import sys
+from rqt_param_manager.rqt_param_manager import RqtParamManagerPlugin
+from rqt_gui.main import Main
+
+plugin = 'rqt_param_manager'
+main = Main(filename=plugin)
+sys.exit(main.main(standalone=plugin))

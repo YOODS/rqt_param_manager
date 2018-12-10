@@ -1,0 +1,20 @@
+<library path="src">
+  <class name="RqtParamManagerPlugin" type="rqt_param_manager.rqt_param_manager.RqtParamManagerPlugin" base_class_type="rqt_gui_py::Plugin">
+    <description>
+      RqtParamManagerPlugin description.
+    </description>
+    <qtgui>
+      <!-- optional grouping...
+      <group>
+        <label>Group</label>
+      </group>
+      <group>
+        <label>Subgroup</label>
+      </group>
+      -->
+      <label>RqtParamManagerPlugin</label>
+      <icon type="theme">utilities-system-monitor</icon>
+      <statustip>Great user interface to provide real value.</statustip>
+    </qtgui>
+  </class>
+</library>
