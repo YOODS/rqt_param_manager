@@ -226,7 +226,7 @@ class RqtParamManagerPlugin(Plugin):
             json_dict = json.load(f)
             self._title = json_dict[KEY_CONFFILE_TITLE]
             self._get_interval = json_dict[KEY_CONFFILE_GET_INTERVAL]
-            self._dump_yaml_file_path = json_dict[KEY_CONFFILE_DUMP_YAML]
+            self._dump_yaml_file_path = os.getenv('PMCLIENT_PKG_PATH', '/tmp') + '/' + json_dict[KEY_CONFFILE_DUMP_YAML]
 
             rospy.loginfo("title=%s", self._title.encode(FILE_ENC))
             rospy.loginfo("getInterval=%s sec", self._get_interval)
@@ -348,7 +348,7 @@ class RqtParamManagerPlugin(Plugin):
 
         import rosparam
         try:
-            rosparam.dump_params(self._dump_yaml_file_path, "/")
+            rosparam.dump_params(self._dump_yaml_file_path, rospy.get_namespace())
             QMessageBox.information(self._widget, "お知らせ", "設定を保存しました。")
         except IOError as e:
             rospy.logerr("dump failed. %s", e)
