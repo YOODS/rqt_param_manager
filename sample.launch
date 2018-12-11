@@ -1,3 +1,3 @@
 <launch>
-<node name="livecamera_pm" pkg="rqt_param_manager" type="rqt_param_manager" args="_conffile:=$(optenv ROS_WS)/src/rqt_param_manager/sample.json" />
+  <node ns="rovi" name="livecamera_pm" pkg="rqt_param_manager" type="rqt_param_manager" args="_conffile:=$(find rqt_param_manager)/pmjson/sample_pm.json" />
 </launch>

@@ -1,14 +1,14 @@
 {
-    "dumpYaml": "/tmp/cam.yaml",
+    "dumpYaml": "cam.yaml",
     "title": "カメラ（ライブ）",
     "params": [
         {
             "paramDisp": "露光時間",
-            "paramName": "/rovi/live/camera/ExposureTime"
+            "paramName": "live/camera/ExposureTime"
         },
         {
             "paramDisp": "ゲイン",
-            "paramName": "/rovi/live/camera/Gain"
+            "paramName": "live/camera/Gain"
         },
         {
             "paramDisp": "背景色(赤)",
