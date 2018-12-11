@@ -295,7 +295,7 @@ class RqtParamManagerPlugin(Plugin):
                     QTableWidgetItem("%s" % val)
                 )
 
-    def _on_exec_update(self):
+    def _on_exec_update(self, from_save=False):
         """パラメータ更新実行処理"""
         
         result = False
@@ -315,22 +315,30 @@ class RqtParamManagerPlugin(Plugin):
             else:
                 param = self._params[n]
                 upd_num += 1
-                upd_val = int(upd_val) # TMP
+
+                import yaml
                 try:
                     param_nm = param[KEY_CONFFILE_PARAM_NM]
-
+                    param_type = type(rospy.get_param(param_nm))
+                    if (param_type is int):
+                        upd_val = int(upd_val)
+                    elif (param_type is float):
+                        upd_val = float(upd_val)
+                    elif (param_type is list):
+                        upd_val = yaml.load(upd_val)
                     rospy.set_param(param_nm, upd_val)
                     rospy.loginfo("param_nm=%s val=%s", param_nm, upd_val)
                     ok_num += 1
-                except KeyError as e:
+                except (KeyError, ValueError) as e:
                     rospy.logerr(
-                        "update faild. paramNo=%d cause=%s",
+                        "update failed. paramNo=%d cause=%s",
                         n,
                         e
                     )
 
         if upd_num != ok_num:
-            QMessageBox.warning(self._widget, "警告", "一部パラメータの更新に失敗しました。")
+            if not from_save:
+                QMessageBox.critical(self._widget, "エラー", "パラメータの更新に失敗しました。")
         else:
             result = True
         return result
@@ -341,9 +349,10 @@ class RqtParamManagerPlugin(Plugin):
         self._monitor_timer.stop()
         self._widget.setEnabled(False)
 
-        if not self._on_exec_update():
+        if not self._on_exec_update(True):
+            QMessageBox.critical(self._widget, "エラー", "パラメータの更新と保存に失敗しました。")
             self._monitor_timer.start()
-            QMessageBox.critical(self._widget, "エラー", "パラメータの更新に失敗しました。")
+            self._widget.setEnabled(True)
             return
 
         import rosparam
