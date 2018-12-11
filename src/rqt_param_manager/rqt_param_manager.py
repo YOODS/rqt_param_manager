@@ -164,6 +164,7 @@ class RqtParamManagerPlugin(Plugin):
 
         self._monitor_timer.stop()
 
+        """
         # UIが終了してもrosparamに「/rqt_gui_py_node_<no>/conffile」
         # が残っているので削除。この処理が必要なのかどうか不明だが。
         # まぁやっておく。
@@ -172,6 +173,7 @@ class RqtParamManagerPlugin(Plugin):
         if len(self_ros_param_names):
             for self_ros_param_name in self_ros_param_names:
                 rospy.delete_param(self_ros_param_name)
+        """
 
     def save_settings(self, plugin_settings, instance_settings):
         """設定保存処理"""
@@ -200,15 +202,15 @@ class RqtParamManagerPlugin(Plugin):
         result = False
 
         if not len(sys.argv) > 1:
-            rospy.logerr("argv '_conffile' is not specified.")
+            rospy.logerr("argv 'conffile' is not specified.")
         else:
             tokens = sys.argv[1].split(":=")
-            if len(tokens) == 2 and tokens[0] == "_conffile":
+            if len(tokens) == 2 and tokens[0] == "conffile":
                 conf_file_path = tokens[1]
                 result = self._parse_conf_file(conf_file_path)
             else:
                 rospy.logerr(
-                    "argv '_conffile' is wrong format. %s",
+                    "argv 'conffile' is wrong format. %s",
                     sys.argv[1]
                 )
 
