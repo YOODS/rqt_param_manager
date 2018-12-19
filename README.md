@@ -6,10 +6,10 @@ pip install pyyaml
 ~~~
 
 # B. エンドユーザによる使い方
-※commit 45c7c96により、現時点では使えなくなっているので注意。45c7c96の一つ前の10fb908に戻せば使える。
 
 ## B-1. 起動
 クライアントとしてRoVIを使用する例：  
+※RoVI commit 45c7c96により、現時点では使えなくなっているので注意。45c7c96の一つ前の10fb908に戻せば使える。  
 ~~~
 roscd rovi
 git pull origin ramiel
@@ -21,7 +21,7 @@ roslaunch rovi ycam3vga_pshift_pm.launch
 ~~~
 
 ## B-2. 動作、確認
-rvizのライブ画面や rosservice call /rovi/pshift/rovi/pshift_genpc での点群生成で、rqt_param_managerが効いているのが確認できる。
+rvizのライブ画面や rosservice call /rovi/pshift_genpc での点群生成で、rqt_param_managerが効いているのが確認できる。
 
 
 # C. 本ツールのクライアントの作成手順
@@ -55,7 +55,7 @@ ROS_NAMESPACE=/xxx rosparam load yaml/A_ld.yaml
 ROS_NAMESPACE=/xxx rosparam load yaml/B_ld.yaml
 ROS_NAMESPACE=/xxx rosparam load yaml/CLIENT_BASIC.yaml
 ~~~
-相当のことをする。
+　相当のことをする。
 
 4. パラメータ編集ツールのlaunchファイル (~/catkin_ws/src/xxx/launch/{A,B}_pm.launch) を用意する。(RoVIのをコピーして編集すればよい。)
 
@@ -69,7 +69,7 @@ ROS_NAMESPACE=/xxx rosparam load yaml/CLIENT_BASIC.yaml
 </launch>
 ~~~
 　の「rovi」3箇所を「xxx」に書き換え、  
-　<node>のnameの値をA_pmに書き換え、  
+　&lt;node&gt;のnameの値をA_pmに書き換え、  
 　conffileの値のycam3vga_livecamera_pm.jsonをA_pm.jsonに書き換え。
 
 5. 後は以下で実行できる。
