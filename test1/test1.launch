@@ -1,0 +1,7 @@
+<launch>
+  <rosparam ns="test" command="load" file="param.yaml" />
+  <rosparam ns="test" command="load" file="param2.yaml" />
+  <node pkg="rqt_param_manager" ns="test" type="test1.py" name="test1" output="screen" />
+  <node pkg="rovi" type="paraman.js" name="paraman1" args="/test/hist /test/hist/param" output="screen" />
+  <node pkg="rovi" type="paraman.js" name="paraman2" args="/test/solver /test/hist/param" />
+</launch>

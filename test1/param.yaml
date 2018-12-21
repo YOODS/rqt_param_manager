@@ -1,0 +1,15 @@
+hist:
+  Range0: 3000
+  Range1: 1
+  Range2: 2
+  Range3: 3
+  Range4: 4
+  Range5: 5
+  Range6: 6
+  Range7: 7
+  Range8: 8
+  Range9: 9
+
+solver:
+  File: "model.ply"
+  Mesh: 1.0
