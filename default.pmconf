@@ -1,0 +1,8 @@
+#comment
+"Echo","位相シフト用パラメータ"
+"Echo:gridboard/error","再投影誤差"
+"Number:camera/ExposureTime","露光時間(usec)"
+"camera/ExposureTime","露光時間(usec)"
+"Text:camera/ID","カメラID"
+"File:solver/model_name","モデルデータファイル","data/*.ply"
+"Trigger:pshift_genpc","3D撮像"

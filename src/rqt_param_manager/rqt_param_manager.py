@@ -6,31 +6,36 @@ import os
 import rospy
 import rospkg
 
+
 from qt_gui.plugin import Plugin
 from python_qt_binding import loadUi
-from python_qt_binding import QtGui
-from python_qt_binding.QtCore import QTimer, QVariant
-from python_qt_binding.QtWidgets import (
-    QWidget,
-    QTableWidgetItem,
-    QItemDelegate,
-    QHeaderView,
-    QMessageBox,
-)
+from python_qt_binding.QtGui import *
+from python_qt_binding.QtCore import QTimer, QVariant,QPoint
+from python_qt_binding.QtWidgets import *
+#from python_qt_binding.QtWidgets import (
+#    QWidget,
+#    QTableWidgetItem,
+#    QItemDelegate,
+#    QHeaderView,
+#    QMessageBox,
+#    QPushButton,
+#    QLabel
+#)
+from config_item import *
 
 # ================ 定数一覧 ================
 FILE_ENC = "utf-8"
 INVALID_VAL = "---"
-TBL_COL_PARAM_NM = 0
-TBL_COL_PARAM_CUR_VAL = 1
-TBL_COL_PARAM_UPD_VAL = 2
+TBL_COL_LABEL = 0
+TBL_COL_INPUT = 1
+TBL_COL_ACTION = 2
 KEY_CONFFILE_TITLE = "title"
 KEY_CONFFILE_GET_INTERVAL = "getInterval"
 KEY_CONFFILE_DUMP_YAML = "dumpYaml"
 KEY_CONFFILE_PARAMS = "params"
 KEY_CONFFILE_PARAM_NM = "paramName"
 KEY_CONFFILE_PARAM_DISP = "paramDisp"
-
+FILE_DEFAULT_PM_CONFS = ["default.pmconf","Default.pmconf"]
 
 # ================ クラス一覧 ================
 class NotEditableDelegate(QItemDelegate):
@@ -63,14 +68,20 @@ class RqtParamManagerPlugin(Plugin):
         # クラス変数初期化
         self._title = "不明"
         self._get_interval = 0
-        self._dump_yaml_file_path = ""
-        self._params = {}
         self._monitor_timer = QTimer()
-
+        self._conf_file_path_list = FILE_DEFAULT_PM_CONFS
+        self._dump_yaml_file_path = ""
+        self._config_item_list = []
+        
         self.setObjectName('RqtParamManagerPlugin')
 
-        result_load_conf = self._load_conf_file(sys.argv)
-
+        self._parse_args(sys.argv)
+        ## result_load_conf = self._load_conf_file(sys.argv)
+        
+        print(sys.argv)
+        print(self._conf_file_path_list )
+        print("dump_yaml_file_path="+self._dump_yaml_file_path)
+        
         # Create QWidget
         self._widget = QWidget()
         ui_file = os.path.join(
@@ -84,27 +95,31 @@ class RqtParamManagerPlugin(Plugin):
 
         context.add_widget(self._widget)
 
-        self._setup_params_table(self._widget.tblParams)
+        self._setup_params_table(self._widget.tblConfigItems)
+        
+        result_load_conf=self._parse_conf_file(self._conf_file_path_list,self._config_item_list);
 
         if not result_load_conf:
             self._widget.btnUpdate.setEnabled(False)
-            self._widget.btnSave.setEnabled(False)
+            #self._widget.btnSave.setEnabled(False)
         else:
             QTimer.singleShot(0, self._update_window_title)
 
             # bind connections
             self._widget.btnUpdate.clicked.connect(self._on_exec_update)
-            self._widget.btnSave.clicked.connect(self._on_exec_save)
+            #self._widget.btnSave.clicked.connect(self._on_exec_save)
             self._monitor_timer.timeout.connect(self._on_get_params)
 
-            self._load_params_table_item(self._widget.tblParams, self._params)
+            self._load_config_table_item(self._widget.tblConfigItems, self._config_item_list)
 
             # テーブル行とパラメータ数のチェック
-            table_row_num = self._widget.tblParams.rowCount()
-            param_num = len(self._params)
-            if table_row_num != param_num or param_num == 0:
-                self._widget.btnUpdate.setEnabled(False)
-                self._widget.btnSave.setEnabled(False)
+            table_row_num = self._widget.tblConfigItems.rowCount()
+            
+            #---一時コメント
+#            param_num = len(self._params)
+#            if table_row_num != param_num or param_num == 0:
+#                self._widget.btnUpdate.setEnabled(False)
+#                self._widget.btnSave.setEnabled(False)
 
             # 定期監視処理の開始
             if self._get_interval > 0:
@@ -134,28 +149,28 @@ class RqtParamManagerPlugin(Plugin):
 
         # 列1,2は編集不可
         no_edit_delegate = NotEditableDelegate()
-        table.setItemDelegateForColumn(TBL_COL_PARAM_NM, no_edit_delegate)
-        table.setItemDelegateForColumn(TBL_COL_PARAM_CUR_VAL, no_edit_delegate)
+        table.setItemDelegateForColumn(TBL_COL_LABEL, no_edit_delegate)
+        table.setItemDelegateForColumn(TBL_COL_ACTION, no_edit_delegate)
 
         # ヘッダー列の設定
         headerCol1 = QTableWidgetItem()
-        headerCol1.setText("パラメータ名")
-        table.setHorizontalHeaderItem(TBL_COL_PARAM_NM, headerCol1)
+        headerCol1.setText("ラベル")
+        table.setHorizontalHeaderItem(TBL_COL_LABEL, headerCol1)
 
         headerCol2 = QTableWidgetItem()
-        headerCol2.setText("現在値")
-        table.setHorizontalHeaderItem(TBL_COL_PARAM_CUR_VAL, headerCol2)
+        headerCol2.setText("Input")
+        table.setHorizontalHeaderItem(TBL_COL_INPUT, headerCol2)
 
         headerCol3 = QTableWidgetItem()
-        headerCol3.setText("更新値")
-        table.setHorizontalHeaderItem(TBL_COL_PARAM_UPD_VAL, headerCol3)
+        headerCol3.setText("ボタン")
+        table.setHorizontalHeaderItem(TBL_COL_ACTION, headerCol3)
 
         header = table.horizontalHeader()
-        header.setSectionResizeMode(TBL_COL_PARAM_NM, QHeaderView.Stretch)
-        header.setSectionResizeMode(TBL_COL_PARAM_CUR_VAL, QHeaderView.Fixed)
-        header.setSectionResizeMode(TBL_COL_PARAM_UPD_VAL, QHeaderView.Fixed)
-        table.setColumnWidth(TBL_COL_PARAM_CUR_VAL, 120)
-        table.setColumnWidth(TBL_COL_PARAM_UPD_VAL, 120)
+        header.setSectionResizeMode(TBL_COL_LABEL, QHeaderView.Stretch)
+        header.setSectionResizeMode(TBL_COL_INPUT, QHeaderView.Fixed)
+        header.setSectionResizeMode(TBL_COL_ACTION, QHeaderView.Fixed)
+        table.setColumnWidth(TBL_COL_INPUT, 120)
+        table.setColumnWidth(TBL_COL_ACTION, 120)
 
         table.verticalHeader().hide()
 
@@ -195,76 +210,99 @@ class RqtParamManagerPlugin(Plugin):
         # This will enable a setting button (gear icon)
         # in each dock widget title bar
         # Usually used to open a modal configuration dialog
+    
+    def _parse_args(self,argv):
+        """引数パース処理"""
 
-    def _load_conf_file(self, argv):
-        """PM設定ファイル読込処理"""
-
-        result = False
-
-        if not len(sys.argv) > 1:
-            rospy.logerr("argv 'conffile' is not specified.")
-        else:
-            tokens = sys.argv[1].split(":=")
-            if len(tokens) == 2 and tokens[0] == "conffile":
-                conf_file_path = tokens[1]
-                result = self._parse_conf_file(conf_file_path)
-            else:
-                rospy.logerr(
-                    "argv 'conffile' is wrong format. %s",
-                    sys.argv[1]
-                )
-
-        return result
-
-    def _parse_conf_file(self, conf_file_path):
+        for arg in sys.argv:
+            tokens = arg.split(":=")
+            if len(tokens) == 2 :
+                key = tokens[0]
+                if( "conf" == key):
+                    self._conf_file_path_list= [tokens[1]]
+                elif( "dump" == key ):
+                    self._dump_yaml_file_path=tokens[1]
+                
+    def _parse_conf_file(self, conf_file_path_list , items):
         """PM設定ファイル解析処理"""
 
         result = False
 
-        rospy.loginfo("load conf file. path=%s", conf_file_path)
-        import json
-        try:
-            f = open(conf_file_path, 'r')
-            json_dict = json.load(f)
-            self._title = json_dict[KEY_CONFFILE_TITLE]
-            self._get_interval = json_dict[KEY_CONFFILE_GET_INTERVAL]
-            self._dump_yaml_file_path = os.getenv('PMCLIENT_PKG_PATH', '/tmp') + '/' + json_dict[KEY_CONFFILE_DUMP_YAML]
+        for conf_file_path in conf_file_path_list:
+            rospy.loginfo("load conf file. path=%s", conf_file_path)
+            
+            try:
+                file = open(conf_file_path, 'r')
+                for line in file:
+                    line = line.strip()
+                    if( len(line) == 0 or line[0] == "#" ):
+                        #print("invalid or comment line. line=" + line)
+                        continue
+                    
+                    item=ConfigItem()
+                    #item.prefix="/aaa/bbb/"
+                    if( not item.parse(line) ):
+                        rospy.logerr("conf file wrong line. %s", line)
+                    else:
+                        print("[%02d] %s" % (len(items),item.toString()))
+                        items.append(item)
 
-            rospy.loginfo("title=%s", self._title.encode(FILE_ENC))
-            rospy.loginfo("getInterval=%s sec", self._get_interval)
-            rospy.loginfo(
-                "dumpYaml=%s",
-                self._dump_yaml_file_path.encode(FILE_ENC)
-            )
-
-            self._params = json_dict[KEY_CONFFILE_PARAMS]
-
-            result = True
-        except IOError as e:
-            rospy.logerr("json file load failed. %s", e)
-
+                file.close()
+                result = True
+            except IOError as e:
+                rospy.logerr("conf file load failed. %s", e)
+                
+            if result :
+                break
+        
         return result
 
-    def _load_params_table_item(self, table, params):
+    def _load_config_table_item(self, table, items):
         """パラメータテーブル項目読込処理"""
 
-        param_num = len(params)
-        table.setRowCount(param_num)
+        item_num = len(items)
+        table.setRowCount(item_num)
+        
+        model=table.model()
+        
         n = 0
-        for param in params:
-            try:
-                label = param[KEY_CONFFILE_PARAM_DISP]
-                table.setItem(n, TBL_COL_PARAM_NM, QTableWidgetItem(label))
-            except KeyError as e:
-                table.setItem(n, TBL_COL_PARAM_NM, QTableWidgetItem("不明"))
-                rospy.logerr("conf file key error. %s", e)
+        for item in items:
+            table.setItem(n, TBL_COL_LABEL, QTableWidgetItem(item.label))
 
-            table.setItem(
-                n,
-                TBL_COL_PARAM_CUR_VAL,
-                QTableWidgetItem(INVALID_VAL)
-            )
-            table.setItem(n, TBL_COL_PARAM_UPD_VAL, QTableWidgetItem(""))
+            if ( ITEM_TYPE_ECHO == item.type ):
+                if ( len(item.topic) > 0 ):
+                    print("TODO:topic")
+                    table.setItem(
+                        n,
+                        TBL_COL_INPUT,
+                        QTableWidgetItem(INVALID_VAL)
+                    )
+                else:
+                    table.setSpan(n,TBL_COL_LABEL,1,3)
+            elif( ITEM_TYPE_FILE == item.type ):
+                lbl = QLabel();
+                table.setIndexWidget(model.index(n,TBL_COL_INPUT), lbl);
+                
+                btn = QPushButton();
+                btn.setText("一覧");
+                table.setIndexWidget(model.index(n,TBL_COL_ACTION), btn);
+                btn.clicked.connect(item._on_action)
+
+            elif( ITEM_TYPE_TRIGGER == item.type ):
+                lbl = QLabel();
+                table.setIndexWidget(model.index(n,TBL_COL_INPUT), lbl);
+                
+                btn.clicked.connect(item._on_action)
+                btn = QPushButton();
+                btn.setText("実行");
+                table.setIndexWidget(model.index(n,TBL_COL_ACTION), btn);
+                btn.clicked.connect(item._on_action)
+            else:
+                table.setItem(
+                    n,
+                    TBL_COL_INPUT,
+                    QTableWidgetItem(INVALID_VAL)
+                )
             n += 1
 
     def _on_get_params(self):
@@ -280,35 +318,35 @@ class RqtParamManagerPlugin(Plugin):
             except KeyError as e:
                 # エラーに出すと数がすごいことになりそうなので出さない
                 pass
-            table = self._widget.tblParams
+            table = self._widget.tblConfigItems
             table.setItem(
                 n,
-                TBL_COL_PARAM_CUR_VAL,
+                TBL_COL_INPUT,
                 QTableWidgetItem("%s" % val)
             )
-            upd_val = table.item(n, TBL_COL_PARAM_UPD_VAL).text()
+            # upd_val = table.item(n, TBL_COL_ACTION).text()
             # 無効データ取得 もしくは 初回データ更新
-            if INVALID_VAL == val \
-               or len(upd_val) == 0 \
-               or (INVALID_VAL != val and upd_val == INVALID_VAL):
-                table.setItem(
-                    n,
-                    TBL_COL_PARAM_UPD_VAL,
-                    QTableWidgetItem("%s" % val)
-                )
+            # if INVALID_VAL == val \
+            #   or len(upd_val) == 0 \
+            #   or (INVALID_VAL != val and upd_val == INVALID_VAL):
+            #    table.setItem(
+            #        n,
+            #        TBL_COL_ACTION,
+            #        QTableWidgetItem("%s" % val)
+            #    )
 
     def _on_exec_update(self, from_save=False):
         """パラメータ更新実行処理"""
         
         result = False
-        table = self._widget.tblParams
+        table = self._widget.tblConfigItems
         row_num = table.rowCount()
 
         upd_num = 0
         ok_num = 0
         for n in range(row_num):
-            cur_val = table.item(n, TBL_COL_PARAM_CUR_VAL).text()
-            upd_val = table.item(n, TBL_COL_PARAM_UPD_VAL).text()
+            cur_val = table.item(n, TBL_COL_INPUT).text()
+            # upd_val = table.item(n, TBL_COL_ACTION).text()
 
             if cur_val == upd_val or \
                INVALID_VAL == upd_val or \
