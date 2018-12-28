@@ -1,4 +1,4 @@
-"Title:","YCAM3D設定 ROS_NAMESPACE=$ROS_NAMESPACE"
+"Title:","YCAM3D ROS_NAMESPACE=$ROS_NAMESPACE"
 #comment
 "Echo","位相シフト用パラメータ"
 "Echo:gridboard/error","再投影誤差"
@@ -7,3 +7,4 @@
 "Text:camera/ID","カメラID"
 "File:solver/model_name","モデルデータファイル","data/*.ply"
 "Trigger:pshift_genpc","3D撮像"
+"Number:/background_b","亀スイミング背景(青)"

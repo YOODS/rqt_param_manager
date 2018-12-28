@@ -68,7 +68,7 @@ class RqtParamManagerPlugin(Plugin):
 
         # クラス変数初期化
         self._title = "rqt_param_manager"
-        self._get_interval = 0
+        self._get_interval = 1000
         self._monitor_timer = QTimer()
         self._conf_file_path_list = FILE_DEFAULT_PM_CONFS
         self._dump_yaml_file_path = ""
@@ -105,16 +105,18 @@ class RqtParamManagerPlugin(Plugin):
         
         result_load_conf=self._parse_conf_file(self._conf_file_path_list,self._config_item_list);
 
+
+        QTimer.singleShot(0, self._update_window_title)
+            
         if not result_load_conf:
             #self._widget.btnUpdate.setEnabled(False)
             self._widget.btnSave.setEnabled(False)
         else:
-            QTimer.singleShot(0, self._update_window_title)
 
             # bind connections
             #self._widget.btnUpdate.clicked.connect(self._on_exec_update)
             self._widget.btnSave.clicked.connect(self._on_exec_save)
-            self._monitor_timer.timeout.connect(self._on_get_params)
+            self._monitor_timer.timeout.connect(self._on_period_monitoring)
 
             self._load_config_table_item(self._widget.tblConfigItems, self._config_item_list)
 
@@ -129,12 +131,12 @@ class RqtParamManagerPlugin(Plugin):
 
             # 定期監視処理の開始
             if self._get_interval > 0:
-                self._on_get_params()
+                self._on_period_monitoring()
                 rospy.loginfo(
                     "start monitor. interval=%d sec",
                     self._get_interval
                 )
-                self._monitor_timer.start(self._get_interval * 1000)
+                self._monitor_timer.start(self._get_interval)
 
     def _update_window_title(self):
         """ウィンドウタイトルを変更する処理"""
@@ -322,83 +324,77 @@ class RqtParamManagerPlugin(Plugin):
                 )
             n += 1
 
-    def _on_get_params(self):
-        """パラメータ取得処理"""
+    def _on_period_monitoring(self):
+        """定期監視処理"""
 
-        param_num = len(self._params)
-        for n in range(param_num):
-            param = self._params[n]
-            val = INVALID_VAL
-            try:
-                param_nm = param[KEY_CONFFILE_PARAM_NM]
-                val = rospy.get_param(param_nm)
-            except KeyError as e:
-                # エラーに出すと数がすごいことになりそうなので出さない
-                pass
-            table = self._widget.tblConfigItems
-            table.setItem(
-                n,
-                TBL_COL_INPUT,
-                QTableWidgetItem("%s" % val)
-            )
-            # upd_val = table.item(n, TBL_COL_ACTION).text()
-            # 無効データ取得 もしくは 初回データ更新
-            # if INVALID_VAL == val \
-            #   or len(upd_val) == 0 \
-            #   or (INVALID_VAL != val and upd_val == INVALID_VAL):
-            #    table.setItem(
-            #        n,
-            #        TBL_COL_ACTION,
-            #        QTableWidgetItem("%s" % val)
-            #    )
-
-    def _on_exec_update(self, from_save=False):
-        """パラメータ更新実行処理"""
-        
-        result = False
         table = self._widget.tblConfigItems
-        row_num = table.rowCount()
+        item_num = len(self._config_item_list)
 
-        upd_num = 0
-        ok_num = 0
-        for n in range(row_num):
-            cur_val = table.item(n, TBL_COL_INPUT).text()
-            # upd_val = table.item(n, TBL_COL_ACTION).text()
+        for n in range(item_num):
+            item = self._config_item_list[n]
+            
+            if( item.type == ITEM_TYPE_NUMBER or item.type == ITEM_TYPE_TEXT):
+                val = INVALID_VAL
+                if( len (item.param) > 0 ):
+                    try:
+                        val = rospy.get_param(item.param)
+                    except KeyError as e:
+                        # エラーに出すと数がすごいことになりそうなので出さない
+                        pass
 
-            if cur_val == upd_val or \
-               INVALID_VAL == upd_val or \
-               len(upd_val) <= 0:
-                pass
-            else:
-                param = self._params[n]
-                upd_num += 1
+                table.setItem(
+                    n,
+                    TBL_COL_INPUT,
+                    QTableWidgetItem("%s" % val)
+                )
 
-                import yaml
-                try:
-                    param_nm = param[KEY_CONFFILE_PARAM_NM]
-                    param_type = type(rospy.get_param(param_nm))
-                    if (param_type is int):
-                        upd_val = int(upd_val)
-                    elif (param_type is float):
-                        upd_val = float(upd_val)
-                    elif (param_type is list):
-                        upd_val = yaml.load(upd_val)
-                    rospy.set_param(param_nm, upd_val)
-                    rospy.loginfo("param_nm=%s val=%s", param_nm, upd_val)
-                    ok_num += 1
-                except (KeyError, ValueError) as e:
-                    rospy.logerr(
-                        "update failed. paramNo=%d cause=%s",
-                        n,
-                        e
-                    )
-
-        if upd_num != ok_num:
-            if not from_save:
-                QMessageBox.critical(self._widget, "エラー", "パラメータの更新に失敗しました。")
-        else:
-            result = True
-        return result
+#    def _on_exec_update(self, from_save=False):
+#        """パラメータ更新実行処理"""
+#        
+#        result = False
+#        table = self._widget.tblConfigItems
+#        row_num = table.rowCount()
+#
+#        upd_num = 0
+#        ok_num = 0
+#        for n in range(row_num):
+#            cur_val = table.item(n, TBL_COL_INPUT).text()
+#            # upd_val = table.item(n, TBL_COL_ACTION).text()
+#
+#            if cur_val == upd_val or \
+#               INVALID_VAL == upd_val or \
+#               len(upd_val) <= 0:
+#                pass
+#            else:
+#                param = self._params[n]
+#                upd_num += 1
+#
+#                import yaml
+#                try:
+#                    param_nm = param[KEY_CONFFILE_PARAM_NM]
+#                    param_type = type(rospy.get_param(param_nm))
+#                    if (param_type is int):
+#                        upd_val = int(upd_val)
+#                    elif (param_type is float):
+#                        upd_val = float(upd_val)
+#                    elif (param_type is list):
+#                        upd_val = yaml.load(upd_val)
+#                    rospy.set_param(param_nm, upd_val)
+#                    rospy.loginfo("param_nm=%s val=%s", param_nm, upd_val)
+#                    ok_num += 1
+#                except (KeyError, ValueError) as e:
+#                    rospy.logerr(
+#                        "update failed. paramNo=%d cause=%s",
+#                        n,
+#                        e
+#                    )
+#
+#        if upd_num != ok_num:
+#            if not from_save:
+#                QMessageBox.critical(self._widget, "エラー", "パラメータの更新に失敗しました。")
+#        else:
+#            result = True
+#        return result
 
     def _on_exec_save(self):
         """パラメータ保存実行処理"""
