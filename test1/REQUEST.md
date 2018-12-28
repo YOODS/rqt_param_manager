@@ -112,10 +112,9 @@ ROS_NAMESPACE=Robo1であれば、以下のように表示されます。
 <tr><td align="center">処理結果
 <tr><td>成否:OK(True)<br>
 メッセージ:400000 points scanned
-  <div align="center>＜Close＞</div>
+  <div align="center">＜Close＞</div>
 </table>
 
 ## 3.パラメータの保存  
 起動パラメータにdump:=...にてyamlファイルが指定されているときは、＜保存＞ボタンの操作により現在のパラメータを当該ファイルに書き込みます。現行仕様との差異は以下
 - 保存先に存在しないパラメータは追加しない
-
