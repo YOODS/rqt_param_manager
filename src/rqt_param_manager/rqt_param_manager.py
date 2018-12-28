@@ -74,6 +74,7 @@ class RqtParamManagerPlugin(Plugin):
         self._dump_yaml_file_path = ""
         self._config_item_list = []
         self._ros_namespace = os.environ.get(KEY_ENV_ROS_NAMESPACE,"")
+        self._table_input_item_map = {}
         
         self.setObjectName('RqtParamManagerPlugin')
 
@@ -296,6 +297,17 @@ class RqtParamManagerPlugin(Plugin):
                     )
                 else:
                     table.setSpan(n,TBL_COL_LABEL,1,3)
+                    
+            elif( ITEM_TYPE_NUMBER == item.type or ITEM_TYPE_TEXT == item.type):
+                txtEdit = QLineEdit();
+                txtEdit.setFrame(False)
+                txtEdit.setText(INVALID_VAL)
+                txtEdit.textEdited.connect(self._on_text_modified)
+                txtEdit.editingFinished.connect(self._on_text_changed)
+                table.setIndexWidget(model.index(n,TBL_COL_INPUT), txtEdit);
+                self._table_input_item_map[txtEdit]=item
+                item.param_val = INVALID_VAL
+                
             elif( ITEM_TYPE_FILE == item.type ):
                 lbl = QLabel();
                 table.setIndexWidget(model.index(n,TBL_COL_INPUT), lbl);
@@ -323,30 +335,94 @@ class RqtParamManagerPlugin(Plugin):
                     QTableWidgetItem(INVALID_VAL)
                 )
             n += 1
-
+            
+    def _on_text_modified(self):
+        sender = self.sender()
+        try:
+            item = self._table_input_item_map[sender]
+            if( item.type == ITEM_TYPE_NUMBER or item.type == ITEM_TYPE_TEXT):
+                txtEdit=sender;
+                if( item.param_val != txtEdit.text() ):
+                   txtEdit.setStyleSheet('color: rgb(255, 0, 0);')
+                else:
+                   txtEdit.setStyleSheet('color: rgb(0, 0, 0);')
+        except Exception as err:
+            pass
+            
+        
+    def _on_text_changed(self):
+        sender = self.sender()
+        try:
+            item = self._table_input_item_map[sender]
+            if( item.type == ITEM_TYPE_NUMBER or item.type == ITEM_TYPE_TEXT):
+                txtEdit=sender;
+                param_val = txtEdit.text().strip()
+                if( param_val != item.param_val ):
+                    if( self._invoke_param_set(item,param_val) ):
+                       txtEdit.setStyleSheet('color: rgb(0, 0, 0);')
+                
+        except Exception as err:
+            print(err)
+            pass
+            
+        
     def _on_period_monitoring(self):
         """定期監視処理"""
-
+        
         table = self._widget.tblConfigItems
         item_num = len(self._config_item_list)
 
         for n in range(item_num):
             item = self._config_item_list[n]
+             
+            key = None
+            try:
+                key = [k for k, v in self._table_input_item_map.items() if v is item ]
+            except Exception as err:
+                print(err)
+                key = None
+            
+            if( not key or len(key) == 0):
+                continue
+            
+            key=key[0]
             
             if( item.type == ITEM_TYPE_NUMBER or item.type == ITEM_TYPE_TEXT):
+                txtEdit = key
+                
                 val = INVALID_VAL
-                if( len (item.param) > 0 ):
+                if( len (item.param_nm) > 0 ):
                     try:
-                        val = rospy.get_param(item.param)
-                    except KeyError as e:
-                        # エラーに出すと数がすごいことになりそうなので出さない
+                        val = str(rospy.get_param(item.param_nm))
+                    except Exception as err:
+                        #print(err)
                         pass
-
-                table.setItem(
-                    n,
-                    TBL_COL_INPUT,
-                    QTableWidgetItem("%s" % val)
-                )
+                        
+                #print("item_param_val=" + item.param_val + " invalidval="+ val)
+                if( item.param_val != val ):
+                    item.param_val = str(val)
+                    txtEdit.setText(item.param_val)
+                    txtEdit.setStyleSheet('color: rgb(0, 0, 0);')
+                
+    def _invoke_param_set(self, item , val ):
+        #print("val=" + val )
+        result = False
+        try:
+            param_type = type(rospy.get_param(item.param_nm))
+            
+            if (param_type is int):
+                upd_val = int(val)
+            elif (param_type is float):
+                upd_val = float(val)
+            else:
+                upd_val = str(val)
+            
+            rospy.set_param(item.param_nm, upd_val)
+            result = True
+        except Exception as err:
+            print(err)
+        
+        return result
 
 #    def _on_exec_update(self, from_save=False):
 #        """パラメータ更新実行処理"""

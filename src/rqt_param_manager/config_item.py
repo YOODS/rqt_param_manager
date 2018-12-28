@@ -18,9 +18,10 @@ class ConfigItem(QObject):
     type = ITEM_TYPE_NONE
     label = "不明"
     topic = ""
-    param = ""
+    param_nm = ""
     file_option = ""
     trigger = ""
+    param_val = None
     
     # signals 
     invoke_trigger = QtCore.Signal(str)
@@ -57,8 +58,8 @@ class ConfigItem(QObject):
                 result=self._parseNumberLine(type_tokens,line_tokens)
 
             if( result and len(self.prefix) > 0 ):
-                if( len(self.param) > 0 and self.param[0] !='/'  ):
-                    self.param = self.prefix + self.param
+                if( len(self.param_nm) > 0 and self.param_nm[0] !='/'  ):
+                    self.param_nm = self.prefix + self.param_nm
 
 
         return result
@@ -87,9 +88,9 @@ class ConfigItem(QObject):
 
         n = len(type_tokens)
         if( n == 1 ):
-            self.param = type_tokens[0].strip()
+            self.param_nm = type_tokens[0].strip()
         elif( n == 2 ):
-            self.param = type_tokens[1].strip()
+            self.param_nm = type_tokens[1].strip()
         else:
             return False
 
@@ -104,7 +105,7 @@ class ConfigItem(QObject):
             return False
             
         if( len(type_tokens) == 2 ):
-            self.param = type_tokens[1].strip()
+            self.param_nm = type_tokens[1].strip()
         else:
             return False
 
@@ -123,7 +124,7 @@ class ConfigItem(QObject):
             self.file_option = line_tokens[2].strip()
 
         if( len(type_tokens) == 2 ):
-            self.param = type_tokens[1].strip()
+            self.param_nm = type_tokens[1].strip()
         else:
             return False
             
@@ -160,15 +161,15 @@ class ConfigItem(QObject):
 
         elif ( ITEM_TYPE_NUMBER == self.type ):
             str = "item=NUMBER type=%d" % ( self.type ) + str
-            str = str + ", param=%s" % self.param
+            str = str + ", param_nm=%s" % self.param_nm
 
         elif ( ITEM_TYPE_TEXT == self.type ):
             str = "item=TEXT type=%d" % ( self.type ) + str
-            str = str + ", param=%s" % self.param
+            str = str + ", param_nm=%s" % self.param_nm
             
         elif ( ITEM_TYPE_FILE == self.type ):
             str = "item=FILE type=%d" % ( self.type ) + str
-            str = str + ", param=%s" % self.param
+            str = str + ", param_nm=%s" % self.param_nm
             if ( len(self.file_option) > 0 ):
                 str = str + ", opt=%s" % self.file_option
                 
