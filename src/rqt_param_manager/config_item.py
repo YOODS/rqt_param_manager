@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 
-from python_qt_binding.QtCore import QObject
+from python_qt_binding import QtCore
+from python_qt_binding.QtCore import *
 
 ITEM_TYPE_NONE = 0
 ITEM_TYPE_ECHO = 1
@@ -21,6 +22,10 @@ class ConfigItem(QObject):
     file_option = ""
     trigger = ""
     
+    # signals 
+    invoke_trigger = QtCore.Signal(str)
+    
+    @classmethod
     def trim(self, str ):
         str = str.strip()
         str = str.lstrip('"')
@@ -33,23 +38,23 @@ class ConfigItem(QObject):
 
         line_tokens = line.split(",")
         if( len(line_tokens) > 0 ):
-            ITEM_TYPE_tokens = self.trim(line_tokens[0]).split(":")
-            if ( len(ITEM_TYPE_tokens) == 0 ):
+            type_tokens = self.trim(line_tokens[0]).split(":")
+            if ( len(type_tokens) == 0 ):
                 return False
             
-            type = ITEM_TYPE_tokens[0].strip()
+            type = type_tokens[0].strip()
             if( "Echo" == type ):
-                result=self._parseEchoLine(ITEM_TYPE_tokens,line_tokens)
+                result=self._parseEchoLine(type_tokens,line_tokens)
             elif ( "Number" == type ):
-                result=self._parseNumberLine(ITEM_TYPE_tokens,line_tokens)
+                result=self._parseNumberLine(type_tokens,line_tokens)
             elif ( "Text" == type ):
-                result=self._parseTextLine(ITEM_TYPE_tokens,line_tokens)
+                result=self._parseTextLine(type_tokens,line_tokens)
             elif ( "File" == type ):
-                result=self._parseFileLine(ITEM_TYPE_tokens,line_tokens)
+                result=self._parseFileLine(type_tokens,line_tokens)
             elif ( "Trigger" == type ):
-                result=self._parseTriggerLine(ITEM_TYPE_tokens,line_tokens)
+                result=self._parseTriggerLine(type_tokens,line_tokens)
             else:
-                result=self._parseNumberLine(ITEM_TYPE_tokens,line_tokens)
+                result=self._parseNumberLine(type_tokens,line_tokens)
 
             if( result and len(self.prefix) > 0 ):
                 if( len(self.param) > 0 and self.param[0] !='/'  ):
@@ -58,7 +63,7 @@ class ConfigItem(QObject):
 
         return result
 
-    def _parseEchoLine(self,ITEM_TYPE_tokens,line_tokens):
+    def _parseEchoLine(self,type_tokens,line_tokens):
         self.type = ITEM_TYPE_ECHO
         
         if( len(line_tokens) > 1 ):
@@ -66,13 +71,13 @@ class ConfigItem(QObject):
         else:
             return False
 
-        n = len(ITEM_TYPE_tokens)
+        n = len(type_tokens)
         if( n > 1 ):
-            self.topic = ITEM_TYPE_tokens[1].strip()
+            self.topic = type_tokens[1].strip()
         
         return True
 
-    def _parseNumberLine(self,ITEM_TYPE_tokens,line_tokens):
+    def _parseNumberLine(self,type_tokens,line_tokens):
         self.type = ITEM_TYPE_NUMBER
 
         if( len(line_tokens) > 1 ):
@@ -80,17 +85,17 @@ class ConfigItem(QObject):
         else:
             return False
 
-        n = len(ITEM_TYPE_tokens)
+        n = len(type_tokens)
         if( n == 1 ):
-            self.param = ITEM_TYPE_tokens[0].strip()
+            self.param = type_tokens[0].strip()
         elif( n == 2 ):
-            self.param = ITEM_TYPE_tokens[1].strip()
+            self.param = type_tokens[1].strip()
         else:
             return False
 
         return True
 
-    def _parseTextLine(self,ITEM_TYPE_tokens,line_tokens):
+    def _parseTextLine(self,type_tokens,line_tokens):
         self.type = ITEM_TYPE_TEXT
          
         if( len(line_tokens) > 1 ):
@@ -98,14 +103,14 @@ class ConfigItem(QObject):
         else:
             return False
             
-        if( len(ITEM_TYPE_tokens) == 2 ):
-            self.param = ITEM_TYPE_tokens[1].strip()
+        if( len(type_tokens) == 2 ):
+            self.param = type_tokens[1].strip()
         else:
             return False
 
         return True
 
-    def _parseFileLine(self,ITEM_TYPE_tokens,line_tokens):
+    def _parseFileLine(self,type_tokens,line_tokens):
         self.type = ITEM_TYPE_FILE
         
         n = len(line_tokens)
@@ -117,14 +122,14 @@ class ConfigItem(QObject):
         if( n > 2 ):
             self.file_option = line_tokens[2].strip()
 
-        if( len(ITEM_TYPE_tokens) == 2 ):
-            self.param = ITEM_TYPE_tokens[1].strip()
+        if( len(type_tokens) == 2 ):
+            self.param = type_tokens[1].strip()
         else:
             return False
             
         return True
          
-    def _parseTriggerLine(self,ITEM_TYPE_tokens,line_tokens):
+    def _parseTriggerLine(self,type_tokens,line_tokens):
          self.type = ITEM_TYPE_TRIGGER
          
          if( len(line_tokens) > 1 ):
@@ -132,15 +137,18 @@ class ConfigItem(QObject):
          else:
              return False
             
-         if( len(ITEM_TYPE_tokens) == 2 ):
-             self.trigger = ITEM_TYPE_tokens[1].strip()
+         if( len(type_tokens) == 2 ):
+             self.trigger = type_tokens[1].strip()
          else:
              return False
          return True
 
-
+    #@QtCore.pyqtSlot()
     def _on_action(self):
-        print("Acction. label=" + self.label)
+        print("Acction. type=%d label=%s" % (self.type,self.label))
+        
+        if( self.type == ITEM_TYPE_TRIGGER ):
+            self.invoke_trigger.emit(self.trigger)
 
     def toString(self):
         

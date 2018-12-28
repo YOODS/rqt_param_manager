@@ -1,3 +1,4 @@
+"Title:","YCAM3D設定 ROS_NAMESPACE=$ROS_NAMESPACE"
 #comment
 "Echo","位相シフト用パラメータ"
 "Echo:gridboard/error","再投影誤差"

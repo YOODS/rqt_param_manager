@@ -5,7 +5,7 @@ import sys
 import os
 import rospy
 import rospkg
-
+import string
 
 from qt_gui.plugin import Plugin
 from python_qt_binding import loadUi
@@ -36,6 +36,7 @@ KEY_CONFFILE_PARAMS = "params"
 KEY_CONFFILE_PARAM_NM = "paramName"
 KEY_CONFFILE_PARAM_DISP = "paramDisp"
 FILE_DEFAULT_PM_CONFS = ["default.pmconf","Default.pmconf"]
+KEY_ENV_ROS_NAMESPACE = "ROS_NAMESPACE"
 
 # ================ クラス一覧 ================
 class NotEditableDelegate(QItemDelegate):
@@ -66,21 +67,26 @@ class RqtParamManagerPlugin(Plugin):
         super(RqtParamManagerPlugin, self).__init__(context)
 
         # クラス変数初期化
-        self._title = "不明"
+        self._title = "rqt_param_manager"
         self._get_interval = 0
         self._monitor_timer = QTimer()
         self._conf_file_path_list = FILE_DEFAULT_PM_CONFS
         self._dump_yaml_file_path = ""
         self._config_item_list = []
+        self._ros_namespace = os.environ.get(KEY_ENV_ROS_NAMESPACE,"")
         
         self.setObjectName('RqtParamManagerPlugin')
 
         self._parse_args(sys.argv)
+        
         ## result_load_conf = self._load_conf_file(sys.argv)
         
-        print(sys.argv)
-        print(self._conf_file_path_list )
-        print("dump_yaml_file_path="+self._dump_yaml_file_path)
+        if( len(self._ros_namespace) > 0 and self._ros_namespace[:-1] != "/" ):
+            self._ros_namespace = self._ros_namespace + "/"
+        
+        #print(sys.argv)
+        #print(self._conf_file_path_list )
+        #print("dump_yaml_file_path="+self._dump_yaml_file_path)
         
         # Create QWidget
         self._widget = QWidget()
@@ -100,14 +106,14 @@ class RqtParamManagerPlugin(Plugin):
         result_load_conf=self._parse_conf_file(self._conf_file_path_list,self._config_item_list);
 
         if not result_load_conf:
-            self._widget.btnUpdate.setEnabled(False)
-            #self._widget.btnSave.setEnabled(False)
+            #self._widget.btnUpdate.setEnabled(False)
+            self._widget.btnSave.setEnabled(False)
         else:
             QTimer.singleShot(0, self._update_window_title)
 
             # bind connections
-            self._widget.btnUpdate.clicked.connect(self._on_exec_update)
-            #self._widget.btnSave.clicked.connect(self._on_exec_save)
+            #self._widget.btnUpdate.clicked.connect(self._on_exec_update)
+            self._widget.btnSave.clicked.connect(self._on_exec_save)
             self._monitor_timer.timeout.connect(self._on_get_params)
 
             self._load_config_table_item(self._widget.tblConfigItems, self._config_item_list)
@@ -238,9 +244,18 @@ class RqtParamManagerPlugin(Plugin):
                     if( len(line) == 0 or line[0] == "#" ):
                         #print("invalid or comment line. line=" + line)
                         continue
-                    
+                    elif ( line.startswith('"Title:",') ):
+                        tokens=line.split(",")
+                        if( len(tokens) == 2 ):
+                            self._title = ConfigItem.trim(tokens[1])
+                            try:
+                                self._title=string.Template(self._title).substitute(os.environ)
+                            except :
+                                rospy.logerr("title replace failed. %s", self._title)
+                        continue
+                        
                     item=ConfigItem()
-                    #item.prefix="/aaa/bbb/"
+                    item.prefix=self._ros_namespace
                     if( not item.parse(line) ):
                         rospy.logerr("conf file wrong line. %s", line)
                     else:
@@ -297,6 +312,8 @@ class RqtParamManagerPlugin(Plugin):
                 btn.setText("実行");
                 table.setIndexWidget(model.index(n,TBL_COL_ACTION), btn);
                 btn.clicked.connect(item._on_action)
+                
+                item.invoke_trigger.connect(self._on_exec_trigger)
             else:
                 table.setItem(
                     n,
@@ -405,3 +422,7 @@ class RqtParamManagerPlugin(Plugin):
 
         self._monitor_timer.start()
         self._widget.setEnabled(True)
+        
+    def _on_exec_trigger(self,trigger):
+        print("trigger=" + trigger )
+        
