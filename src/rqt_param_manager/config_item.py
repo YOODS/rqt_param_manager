@@ -4,11 +4,12 @@ from python_qt_binding import QtCore
 from python_qt_binding.QtCore import *
 
 ITEM_TYPE_NONE = 0
-ITEM_TYPE_ECHO = 1
-ITEM_TYPE_NUMBER = 2
-ITEM_TYPE_TEXT = 3
-ITEM_TYPE_FILE = 4
-ITEM_TYPE_TRIGGER = 5
+ITEM_TYPE_TITLE = 1
+ITEM_TYPE_ECHO = 2
+ITEM_TYPE_NUMBER = 3
+ITEM_TYPE_TEXT = 4
+ITEM_TYPE_FILE = 5
+ITEM_TYPE_TRIGGER = 6
 
 
 class ConfigItem(QObject):
@@ -44,6 +45,8 @@ class ConfigItem(QObject):
                 return False
             
             type = type_tokens[0].strip()
+            if( "Title" == type ):
+                result=self._parseTitleLine(type_tokens,line_tokens)
             if( "Echo" == type ):
                 result=self._parseEchoLine(type_tokens,line_tokens)
             elif ( "Number" == type ):
@@ -64,6 +67,20 @@ class ConfigItem(QObject):
 
         return result
 
+    def _parseTitleLine(self,type_tokens,line_tokens):
+        self.type = ITEM_TYPE_TITLE
+        
+        if( len(line_tokens) > 1 ):
+            self.label = self.trim(line_tokens[1])
+            try:
+                self.label=string.Template(self.label).substitute(os.environ)
+            except :
+                print("title replace failed. %s", self.label)
+        else:
+            return False
+        
+        return True
+        
     def _parseEchoLine(self,type_tokens,line_tokens):
         self.type = ITEM_TYPE_ECHO
         

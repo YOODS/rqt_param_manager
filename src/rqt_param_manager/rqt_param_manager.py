@@ -247,15 +247,6 @@ class RqtParamManagerPlugin(Plugin):
                     if( len(line) == 0 or line[0] == "#" ):
                         #print("invalid or comment line. line=" + line)
                         continue
-                    elif ( line.startswith('"Title:",') ):
-                        tokens=line.split(",")
-                        if( len(tokens) == 2 ):
-                            self._title = ConfigItem.trim(tokens[1])
-                            try:
-                                self._title=string.Template(self._title).substitute(os.environ)
-                            except :
-                                rospy.logerr("title replace failed. %s", self._title)
-                        continue
                         
                     item=ConfigItem()
                     item.prefix=self._ros_namespace
@@ -285,9 +276,14 @@ class RqtParamManagerPlugin(Plugin):
         
         n = 0
         for item in items:
-            table.setItem(n, TBL_COL_LABEL, QTableWidgetItem(item.label))
+            lbl = QTableWidgetItem(item.label)
+            lbl.setTextAlignment (Qt.AlignRight | Qt.AlignVCenter)
+            table.setItem(n, TBL_COL_LABEL , lbl )
 
-            if ( ITEM_TYPE_ECHO == item.type ):
+            if( ITEM_TYPE_TITLE == item.type ):
+                lbl.setTextAlignment (Qt.AlignLeft  | Qt.AlignVCenter)
+                table.setSpan(n,TBL_COL_LABEL,1,3)
+            elif ( ITEM_TYPE_ECHO == item.type ):
                 if ( len(item.topic) > 0 ):
                     print("TODO:topic")
                     table.setItem(
@@ -304,6 +300,7 @@ class RqtParamManagerPlugin(Plugin):
                 txtEdit.setText(INVALID_VAL)
                 txtEdit.textEdited.connect(self._on_text_modified)
                 txtEdit.editingFinished.connect(self._on_text_changed)
+                
                 table.setIndexWidget(model.index(n,TBL_COL_INPUT), txtEdit);
                 self._table_input_item_map[txtEdit]=item
                 item.param_val = INVALID_VAL
@@ -497,4 +494,4 @@ class RqtParamManagerPlugin(Plugin):
         
     def _on_exec_trigger(self,trigger):
         print("trigger=" + trigger )
-        
+

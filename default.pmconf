@@ -1,6 +1,5 @@
-"Title:","YCAM3D ROS_NAMESPACE=$ROS_NAMESPACE"
+"Title:","位相シフト用パラメータ $ROS_NAMESPACE"
 #comment
-"Echo","位相シフト用パラメータ"
 "Echo:gridboard/error","再投影誤差"
 "Number:camera/ExposureTime","露光時間(usec)"
 "camera/ExposureTime","露光時間(usec)"
