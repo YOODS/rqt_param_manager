@@ -47,7 +47,7 @@ class ConfigItem(QObject):
             type = type_tokens[0].strip()
             if( "Title" == type ):
                 result=self._parseTitleLine(type_tokens,line_tokens)
-            if( "Echo" == type ):
+            elif( "Echo" == type ):
                 result=self._parseEchoLine(type_tokens,line_tokens)
             elif ( "Number" == type ):
                 result=self._parseNumberLine(type_tokens,line_tokens)
@@ -64,18 +64,12 @@ class ConfigItem(QObject):
                 if( len(self.param_nm) > 0 and self.param_nm[0] !='/'  ):
                     self.param_nm = self.prefix + self.param_nm
 
-
         return result
 
     def _parseTitleLine(self,type_tokens,line_tokens):
         self.type = ITEM_TYPE_TITLE
-        
         if( len(line_tokens) > 1 ):
             self.label = self.trim(line_tokens[1])
-            try:
-                self.label=string.Template(self.label).substitute(os.environ)
-            except :
-                print("title replace failed. %s", self.label)
         else:
             return False
         
@@ -171,6 +165,10 @@ class ConfigItem(QObject):
     def toString(self):
         
         str = ", label=%s" % self.label
+        
+        if ( ITEM_TYPE_TITLE == self.type ):
+            str = "item=TITLE type=%d" % ( self.type ) + str
+            
         if ( ITEM_TYPE_ECHO == self.type ):
             str = "item=ECHO type=%d" % ( self.type ) + str
             if ( len(self.topic) > 0 ):

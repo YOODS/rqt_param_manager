@@ -87,7 +87,7 @@ class RqtParamManagerPlugin(Plugin):
         
         #print(sys.argv)
         #print(self._conf_file_path_list )
-        #print("dump_yaml_file_path="+self._dump_yaml_file_path)
+        print("dump_yaml_file_path="+self._dump_yaml_file_path)
         
         # Create QWidget
         self._widget = QWidget()
@@ -253,7 +253,14 @@ class RqtParamManagerPlugin(Plugin):
                     if( not item.parse(line) ):
                         rospy.logerr("conf file wrong line. %s", line)
                     else:
-                        print("[%02d] %s" % (len(items),item.toString()))
+                        #print("[%02d] %s" % (len(items),item.toString()))
+                        if (  ITEM_TYPE_TITLE == item.type):
+                            try:
+                                item.label=string.Template(item.label).substitute(os.environ)
+                                self._title=item.label
+                            except :
+                                rospy.logerr("title replace failed. %s", item.label)
+
                         items.append(item)
 
                 file.close()
