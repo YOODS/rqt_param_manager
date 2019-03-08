@@ -65,8 +65,32 @@ ROS_NAMESPACE=Robo1であれば、以下のように表示されます。
 この表示に対応するConfig fileでの記述は下記となります。
 ~~~
 "Echo:gridboard/error","再投影誤差"
-~~~
+~~~  
 トピックの内容表示は、そのトピックの__str__プロパティの値をInput欄に表示します。複数の値を持つトピックでは、単純に複数行に亘りその値を表示します(表示例3行目)。
+
+**トピックの購読(subscribe)にsubscriberコールバックを用いる場合** 、メッセージの型が必要になる。  
+メッセージ型はrostoicを子プロセスで呼べば
+~~~
+rostopic info <topic名>
+~~~
+で分かる。例えば
+~~~
+rostopic info /robot/tf
+~~~
+だと
+~~~
+Type: geometry_msgs/Transform
+~~~
+となります。なのでmsgtype=":以降の文字をパース”して、Pythonのexecにパースさせます。
+~~~
+exec("from "+...+"import "...."+"as msg1")
+~~~
+これでsubscriberに
+~~~
+rospy.sbscriber("topic名",msg1,callback)
+~~~
+と出来ないかな・・・
+
 
 ### 2-5. 数値パラメータの表記
 表示例の4行目が数値パラメータです。  
@@ -99,21 +123,16 @@ ROS_NAMESPACE=Robo1であれば、以下のように表示されます。
 
 ＜一覧＞ボタンを押すと、ダイアログが開き、"data/*.ply"規則に合致するファイル一覧から入力文字を選択できます。
 
-### 2-8. トリガーの表記
-表示例の7行目がトリガーです。  
-トリガーは、パラメータではなくサービスコール(std_srvs/Trigger)を発生させます。
+### 2-8. パブリッシャの表記
+表示例の7行目がパブリッシャです。  
+パブリッシャは、パラメータではなくトピックにパブリッシュ(std_msgs/Bool)します。
 この表示に対応するConfig fileでの記述は下記となります。
 ~~~
-"Trigger:pshift_genpc","3D撮像"
+"Publisher:/rovi/X1","3D撮像"
 ~~~
-＜実行＞ボタンを押すと、サービスコールが実行され、その結果がアラートに表示されます。
+＜実行＞ボタンを押すと、std_msgs/Boolをpublishします。  
+「確認」のダイアログが出た方が親切かもしれない。
 
-<table>
-<tr><td align="center">処理結果
-<tr><td>成否:OK(True)<br>
-メッセージ:400000 points scanned
-  <div align="center">＜Close＞</div>
-</table>
 
 ## 3.パラメータの保存  
 起動パラメータにdump:=...にてyamlファイルが指定されているときは、＜保存＞ボタンの操作により現在のパラメータを当該ファイルに書き込みます。現行仕様との差異は以下
