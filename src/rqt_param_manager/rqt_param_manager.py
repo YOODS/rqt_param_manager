@@ -10,9 +10,9 @@ import string
 from qt_gui.plugin import Plugin
 from python_qt_binding import loadUi
 from python_qt_binding.QtGui import *
-from python_qt_binding.QtCore import QTimer, QVariant,QPoint
+from python_qt_binding.QtCore import QTimer, QVariant, QPoint
 from python_qt_binding.QtWidgets import *
-#from python_qt_binding.QtWidgets import (
+# from python_qt_binding.QtWidgets import (
 #    QWidget,
 #    QTableWidgetItem,
 #    QItemDelegate,
@@ -20,8 +20,10 @@ from python_qt_binding.QtWidgets import *
 #    QMessageBox,
 #    QPushButton,
 #    QLabel
-#)
+# )
 from config_item import *
+from ros_topic_listener_thread import *
+# from std_msgs.msg import String
 
 # ================ 定数一覧 ================
 FILE_ENC = "utf-8"
@@ -35,10 +37,12 @@ KEY_CONFFILE_DUMP_YAML = "dumpYaml"
 KEY_CONFFILE_PARAMS = "params"
 KEY_CONFFILE_PARAM_NM = "paramName"
 KEY_CONFFILE_PARAM_DISP = "paramDisp"
-FILE_DEFAULT_PM_CONFS = ["default.pmconf","Default.pmconf"]
+FILE_DEFAULT_PM_CONFS = ["default.pmconf", "Default.pmconf"]
 KEY_ENV_ROS_NAMESPACE = "ROS_NAMESPACE"
 
 # ================ クラス一覧 ================
+
+
 class NotEditableDelegate(QItemDelegate):
     """特定の列のセルを編集不可にする為に使用するDelegateクラス"""
 
@@ -73,22 +77,23 @@ class RqtParamManagerPlugin(Plugin):
         self._conf_file_path_list = FILE_DEFAULT_PM_CONFS
         self._dump_yaml_file_path = ""
         self._config_item_list = []
-        self._ros_namespace = os.environ.get(KEY_ENV_ROS_NAMESPACE,"")
+        self._ros_namespace = os.environ.get(KEY_ENV_ROS_NAMESPACE, "")
         self._table_input_item_map = {}
-        
+        self._topic_listeners = []
+
         self.setObjectName('RqtParamManagerPlugin')
 
         self._parse_args(sys.argv)
-        
-        ## result_load_conf = self._load_conf_file(sys.argv)
-        
-        if( len(self._ros_namespace) > 0 and self._ros_namespace[:-1] != "/" ):
+
+        # result_load_conf = self._load_conf_file(sys.argv)
+
+        if(len(self._ros_namespace) > 0 and self._ros_namespace[:-1] != "/"):
             self._ros_namespace = self._ros_namespace + "/"
-        
-        #print(sys.argv)
-        #print(self._conf_file_path_list )
-        print("dump_yaml_file_path="+self._dump_yaml_file_path)
-        
+
+        # print(sys.argv)
+        # print(self._conf_file_path_list)
+        # print("dump_yaml_file_path ="+self._dump_yaml_file_path)
+
         # Create QWidget
         self._widget = QWidget()
         ui_file = os.path.join(
@@ -103,19 +108,18 @@ class RqtParamManagerPlugin(Plugin):
         context.add_widget(self._widget)
 
         self._setup_params_table(self._widget.tblConfigItems)
-        
-        result_load_conf=self._parse_conf_file(self._conf_file_path_list,self._config_item_list);
 
+        result_load_conf = self._parse_conf_file(self._conf_file_path_list, self._config_item_list)
 
         QTimer.singleShot(0, self._update_window_title)
-            
+
         if not result_load_conf:
-            #self._widget.btnUpdate.setEnabled(False)
+            # self._widget.btnUpdate.setEnabled(False)
             self._widget.btnSave.setEnabled(False)
         else:
 
             # bind connections
-            #self._widget.btnUpdate.clicked.connect(self._on_exec_update)
+            # self._widget.btnUpdate.clicked.connect(self._on_exec_update)
             self._widget.btnSave.clicked.connect(self._on_exec_save)
             self._monitor_timer.timeout.connect(self._on_period_monitoring)
 
@@ -123,8 +127,8 @@ class RqtParamManagerPlugin(Plugin):
 
             # テーブル行とパラメータ数のチェック
             table_row_num = self._widget.tblConfigItems.rowCount()
-            
-            #---一時コメント
+
+            # ---一時コメント
 #            param_num = len(self._params)
 #            if table_row_num != param_num or param_num == 0:
 #                self._widget.btnUpdate.setEnabled(False)
@@ -134,10 +138,12 @@ class RqtParamManagerPlugin(Plugin):
             if self._get_interval > 0:
                 self._on_period_monitoring()
                 rospy.loginfo(
-                    "start monitor. interval=%d sec",
+                    "start monitor. interval =%d sec",
                     self._get_interval
                 )
                 self._monitor_timer.start(self._get_interval)
+
+            self._start_topic_listen(self._config_item_list)
 
     def _update_window_title(self):
         """ウィンドウタイトルを変更する処理"""
@@ -216,50 +222,46 @@ class RqtParamManagerPlugin(Plugin):
     # def trigger_configuration(self):
         # Comment in to signal that the plugin has a way
         # to configure
-        # This will enable a setting button (gear icon)
+        # This will enable a setting button(gear icon)
         # in each dock widget title bar
         # Usually used to open a modal configuration dialog
-    
-    def _parse_args(self,argv):
+
+    def _parse_args(self, argv):
         """引数パース処理"""
 
         for arg in sys.argv:
             tokens = arg.split(":=")
-            if len(tokens) == 2 :
+            if len(tokens) == 2:
                 key = tokens[0]
-                if( "conf" == key):
-                    self._conf_file_path_list= [tokens[1]]
-                elif( "dump" == key ):
-                    self._dump_yaml_file_path=tokens[1]
-                
-    def _parse_conf_file(self, conf_file_path_list , items):
+                if("conf" == key):
+                    self._conf_file_path_list = [tokens[1]]
+                elif("dump" == key):
+                    self._dump_yaml_file_path = tokens[1]
+
+    def _parse_conf_file(self, conf_file_path_list, items):
         """PM設定ファイル解析処理"""
 
         result = False
 
         for conf_file_path in conf_file_path_list:
-            rospy.loginfo("load conf file. path=%s", conf_file_path)
-            
+            rospy.loginfo("load conf file. path =%s", conf_file_path)
+
             try:
                 file = open(conf_file_path, 'r')
                 for line in file:
                     line = line.strip()
-                    if( len(line) == 0 or line[0] == "#" ):
-                        #print("invalid or comment line. line=" + line)
+                    if(len(line) == 0 or line[0] == "#"):
+                        # print("invalid or comment line. line =" + line)
                         continue
-                        
-                    item=ConfigItem()
-                    item.prefix=self._ros_namespace
-                    if( not item.parse(line) ):
+
+                    item = ConfigItem()
+                    item.prefix = self._ros_namespace
+                    if(not item.parse(line)):
                         rospy.logerr("conf file wrong line. %s", line)
                     else:
-                        #print("[%02d] %s" % (len(items),item.toString()))
-                        if (  ITEM_TYPE_TITLE == item.type):
-                            try:
-                                item.label=string.Template(item.label).substitute(os.environ)
-                                self._title=item.label
-                            except :
-                                rospy.logerr("title replace failed. %s", item.label)
+                        # print("[%02d] %s" % (len(items), item.toString()))
+                        if(ITEM_TYPE_TITLE == item.type):
+                            self._title = item.label
 
                         items.append(item)
 
@@ -267,10 +269,10 @@ class RqtParamManagerPlugin(Plugin):
                 result = True
             except IOError as e:
                 rospy.logerr("conf file load failed. %s", e)
-                
-            if result :
+
+            if result:
                 break
-        
+
         return result
 
     def _load_config_table_item(self, table, items):
@@ -278,59 +280,102 @@ class RqtParamManagerPlugin(Plugin):
 
         item_num = len(items)
         table.setRowCount(item_num)
-        
-        model=table.model()
-        
+
+        model = table.model()
+
         n = 0
         for item in items:
-            lbl = QTableWidgetItem(item.label)
-            lbl.setTextAlignment (Qt.AlignRight | Qt.AlignVCenter)
-            table.setItem(n, TBL_COL_LABEL , lbl )
+            if(ITEM_TYPE_ECHO == item.type):
+                pnl = QWidget()
+                layout = QVBoxLayout()
+                layout.setContentsMargins(3, 3, 3, 3)
+                pnl.setLayout(layout)
 
-            if( ITEM_TYPE_TITLE == item.type ):
-                lbl.setTextAlignment (Qt.AlignLeft  | Qt.AlignVCenter)
-                table.setSpan(n,TBL_COL_LABEL,1,3)
-            elif ( ITEM_TYPE_ECHO == item.type ):
-                if ( len(item.topic) > 0 ):
-                    print("TODO:topic")
+                for topicLbl in item.topic_item_labels:
+                    echoLbl = QLabel(topicLbl)
+                    echoLbl.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                    layout.addWidget(echoLbl)
+
+                pnl.adjustSize()
+                table.setRowHeight(n, pnl.height())
+                table.setIndexWidget(model.index(n, TBL_COL_LABEL), pnl)
+            else:
+                lbl = QTableWidgetItem(item.label)
+                lbl.setTextAlignment(Qt.AlignRight | Qt.AlignVCenter)
+                table.setItem(n, TBL_COL_LABEL, lbl)
+
+            if(ITEM_TYPE_TITLE == item.type):
+                lbl.setTextAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+                table.setSpan(n, TBL_COL_LABEL, 1, 3)
+
+            elif(ITEM_TYPE_ECHO == item.type):
+                """
+                if(len(item.topic) > 0):
                     table.setItem(
                         n,
                         TBL_COL_INPUT,
                         QTableWidgetItem(INVALID_VAL)
                     )
                 else:
-                    table.setSpan(n,TBL_COL_LABEL,1,3)
-                    
-            elif( ITEM_TYPE_NUMBER == item.type or ITEM_TYPE_TEXT == item.type):
-                txtEdit = QLineEdit();
+                    table.setSpan(n, TBL_COL_LABEL, 1, 3)
+                """
+
+                if(len(item.topic_items) != 0):
+                    pnl = QWidget()
+                    layout = QVBoxLayout()
+                    layout.setContentsMargins(3, 3, 3, 3)
+                    pnl.setLayout(layout)
+
+                    for wIdx in range(len(item.topic_item_labels)):
+                        topicItem = None
+                        txtTopic = QLineEdit()
+
+                        if(len(item.topic_items) > wIdx):
+                            topicItem = item.topic_items[wIdx]
+
+                            txtTopic.setObjectName(str(wIdx))
+                            txtTopic.setReadOnly(True)
+                            txtTopic.setFocusPolicy(Qt.NoFocus)
+                            txtTopic.setProperty("topic_nm", topicItem["name"])
+                        else:
+                            txtTopic.setEnabled(false)
+
+                        layout.addWidget(txtTopic)
+
+                    pnl.adjustSize()
+                    table.setRowHeight(n, pnl.height())
+                    table.setIndexWidget(model.index(n, TBL_COL_INPUT), pnl)
+
+            elif(ITEM_TYPE_NUMBER == item.type or ITEM_TYPE_TEXT == item.type):
+                txtEdit = QLineEdit()
                 txtEdit.setFrame(False)
                 txtEdit.setText(INVALID_VAL)
                 txtEdit.textEdited.connect(self._on_text_modified)
                 txtEdit.editingFinished.connect(self._on_text_changed)
-                
-                table.setIndexWidget(model.index(n,TBL_COL_INPUT), txtEdit);
-                self._table_input_item_map[txtEdit]=item
+
+                table.setIndexWidget(model.index(n, TBL_COL_INPUT), txtEdit)
+                self._table_input_item_map[txtEdit] = item
                 item.param_val = INVALID_VAL
-                
-            elif( ITEM_TYPE_FILE == item.type ):
-                lbl = QLabel();
-                table.setIndexWidget(model.index(n,TBL_COL_INPUT), lbl);
-                
-                btn = QPushButton();
-                btn.setText("一覧");
-                table.setIndexWidget(model.index(n,TBL_COL_ACTION), btn);
+
+            elif(ITEM_TYPE_FILE == item.type):
+                lbl = QLabel()
+                table.setIndexWidget(model.index(n, TBL_COL_INPUT), lbl)
+
+                btn = QPushButton()
+                btn.setText("一覧")
+                table.setIndexWidget(model.index(n, TBL_COL_ACTION), btn)
                 btn.clicked.connect(item._on_action)
 
-            elif( ITEM_TYPE_TRIGGER == item.type ):
-                lbl = QLabel();
-                table.setIndexWidget(model.index(n,TBL_COL_INPUT), lbl);
-                
+            elif(ITEM_TYPE_TRIGGER == item.type):
+                lbl = QLabel()
+                table.setIndexWidget(model.index(n, TBL_COL_INPUT), lbl)
+
                 btn.clicked.connect(item._on_action)
-                btn = QPushButton();
-                btn.setText("実行");
-                table.setIndexWidget(model.index(n,TBL_COL_ACTION), btn);
+                btn = QPushButton()
+                btn.setText("実行")
+                table.setIndexWidget(model.index(n, TBL_COL_ACTION), btn)
                 btn.clicked.connect(item._on_action)
-                
+
                 item.invoke_trigger.connect(self._on_exec_trigger)
             else:
                 table.setItem(
@@ -339,98 +384,117 @@ class RqtParamManagerPlugin(Plugin):
                     QTableWidgetItem(INVALID_VAL)
                 )
             n += 1
-            
+
     def _on_text_modified(self):
         sender = self.sender()
         try:
             item = self._table_input_item_map[sender]
-            if( item.type == ITEM_TYPE_NUMBER or item.type == ITEM_TYPE_TEXT):
-                txtEdit=sender;
-                if( item.param_val != txtEdit.text() ):
-                   txtEdit.setStyleSheet('color: rgb(255, 0, 0);')
+            if(item.type == ITEM_TYPE_NUMBER or item.type == ITEM_TYPE_TEXT):
+                txtEdit = sender
+                if(item.param_val != txtEdit.text()):
+                    txtEdit.setStyleSheet('color: rgb(255, 0, 0);')
                 else:
-                   txtEdit.setStyleSheet('color: rgb(0, 0, 0);')
+                    txtEdit.setStyleSheet('color: rgb(0, 0, 0);')
         except Exception as err:
             pass
-            
-        
+
     def _on_text_changed(self):
         sender = self.sender()
         try:
             item = self._table_input_item_map[sender]
-            if( item.type == ITEM_TYPE_NUMBER or item.type == ITEM_TYPE_TEXT):
-                txtEdit=sender;
+            if(item.type == ITEM_TYPE_NUMBER or item.type == ITEM_TYPE_TEXT):
+                txtEdit = sender
                 param_val = txtEdit.text().strip()
-                if( param_val != item.param_val ):
-                    if( self._invoke_param_set(item,param_val) ):
-                       txtEdit.setStyleSheet('color: rgb(0, 0, 0);')
-                
+                if(param_val != item.param_val):
+                    if(self._invoke_param_set(item, param_val)):
+                        txtEdit.setStyleSheet('color: rgb(0, 0, 0);')
+
         except Exception as err:
             print(err)
             pass
-            
-        
+
     def _on_period_monitoring(self):
         """定期監視処理"""
-        
+
         table = self._widget.tblConfigItems
         item_num = len(self._config_item_list)
 
         for n in range(item_num):
             item = self._config_item_list[n]
-             
+
             key = None
             try:
-                key = [k for k, v in self._table_input_item_map.items() if v is item ]
+                key = [k for k, v in self._table_input_item_map.items() if v is item]
             except Exception as err:
                 print(err)
                 key = None
-            
-            if( not key or len(key) == 0):
+
+            if(not key or len(key) == 0):
                 continue
-            
-            key=key[0]
-            
-            if( item.type == ITEM_TYPE_NUMBER or item.type == ITEM_TYPE_TEXT):
+
+            key = key[0]
+
+            if(item.type == ITEM_TYPE_NUMBER or item.type == ITEM_TYPE_TEXT):
                 txtEdit = key
-                
+
                 val = INVALID_VAL
-                if( len (item.param_nm) > 0 ):
+                if(len(item.param_nm) > 0):
                     try:
                         val = str(rospy.get_param(item.param_nm))
                     except Exception as err:
-                        #print(err)
+                        # print(err)
                         pass
-                        
-                #print("item_param_val=" + item.param_val + " invalidval="+ val)
-                if( item.param_val != val ):
+
+                # print("item_param_val =" + item.param_val + " invalidval ="+ val)
+                if(item.param_val != val):
                     item.param_val = str(val)
                     txtEdit.setText(item.param_val)
                     txtEdit.setStyleSheet('color: rgb(0, 0, 0);')
-                
-    def _invoke_param_set(self, item , val ):
-        #print("val=" + val )
+
+    def _start_topic_listen(self, items):
+
+        listenedTopics = []
+
+        for item in items:
+            if(ITEM_TYPE_ECHO == item.type):
+                try:
+                    listenedTopics.index(item.topic)
+                    # もうすでに購読済みなので何もしない
+                except ValueError as ve:
+                    # 未購読
+                    listenedTopics.append(item.topic)
+
+                    thread = RosTopicListener()
+                    thread._topic = item.topic
+                    self._topic_listeners.append(thread)
+                    thread.receivedTopicValues.connect(self._on_topic_value_received)
+                    thread.start()
+                except Except as err:
+                    rospy.logerr("conf file load failed. %s", e)
+
+    def _invoke_param_set(self, item, val):
+        # print("val =" + val)
         result = False
         try:
             param_type = type(rospy.get_param(item.param_nm))
-            
-            if (param_type is int):
+
+            if(param_type is int):
                 upd_val = int(val)
-            elif (param_type is float):
+            elif(param_type is float):
                 upd_val = float(val)
             else:
                 upd_val = str(val)
-            
+
             rospy.set_param(item.param_nm, upd_val)
             result = True
         except Exception as err:
             print(err)
-        
+
         return result
 
-#    def _on_exec_update(self, from_save=False):
+#    def _on_exec_update(self, from_save = False):
 #        """パラメータ更新実行処理"""
-#        
+#
 #        result = False
 #        table = self._widget.tblConfigItems
 #        row_num = table.rowCount()
@@ -453,18 +517,18 @@ class RqtParamManagerPlugin(Plugin):
 #                try:
 #                    param_nm = param[KEY_CONFFILE_PARAM_NM]
 #                    param_type = type(rospy.get_param(param_nm))
-#                    if (param_type is int):
+#                    if(param_type is int):
 #                        upd_val = int(upd_val)
-#                    elif (param_type is float):
+#                    elif(param_type is float):
 #                        upd_val = float(upd_val)
-#                    elif (param_type is list):
+#                    elif(param_type is list):
 #                        upd_val = yaml.load(upd_val)
 #                    rospy.set_param(param_nm, upd_val)
-#                    rospy.loginfo("param_nm=%s val=%s", param_nm, upd_val)
+#                    rospy.loginfo("param_nm =%s val =%s", param_nm, upd_val)
 #                    ok_num += 1
-#                except (KeyError, ValueError) as e:
+#                except(KeyError, ValueError) as e:
 #                    rospy.logerr(
-#                        "update failed. paramNo=%d cause=%s",
+#                        "update failed. paramNo =%d cause =%s",
 #                        n,
 #                        e
 #                    )
@@ -481,24 +545,49 @@ class RqtParamManagerPlugin(Plugin):
 
         self._monitor_timer.stop()
         self._widget.setEnabled(False)
+"""
+        # if not self._on_exec_update(True):
+        #    QMessageBox.critical(self._widget, "エラー", "パラメータの更新と保存に失敗しました。")
+        #    self._monitor_timer.start()
+        #    self._widget.setEnabled(True)
+        #    return
 
-        if not self._on_exec_update(True):
-            QMessageBox.critical(self._widget, "エラー", "パラメータの更新と保存に失敗しました。")
-            self._monitor_timer.start()
-            self._widget.setEnabled(True)
-            return
-
-        import rosparam
-        try:
-            rosparam.dump_params(self._dump_yaml_file_path, rospy.get_namespace())
-            QMessageBox.information(self._widget, "お知らせ", "設定を保存しました。")
-        except IOError as e:
-            rospy.logerr("dump failed. %s", e)
-            QMessageBox.critical(self._widget, "エラー", "保存に失敗しました。")
+        # import rosparam
+        # try:
+            # rosparam.dump_params(self._dump_yaml_file_path, rospy.get_namespace())
+            # rosparam.dump_params(self._dump_yaml_file_path, rosparam.get_param("/"))
+            # QMessageBox.information(self._widget, "お知らせ", "設定を保存しました。")
+        # except IOError as e:
+        #    rospy.logerr("dump failed. %s", e)
+        #    QMessageBox.critical(self._widget, "エラー", "保存に失敗しました。")
 
         self._monitor_timer.start()
         self._widget.setEnabled(True)
-        
-    def _on_exec_trigger(self,trigger):
-        print("trigger=" + trigger )
+"""
 
+    def _on_exec_trigger(self, trigger):
+        print("trigger =" + trigger)
+
+    # @QtCore.pyqtSlot()
+    def _on_topic_value_received(self, result, topic, topicValues):
+        # print("topic value received. result =%d topic = %s" % (result, topic))
+
+        table = self._widget.tblConfigItems
+        model = table.model()
+
+        for n in range(len(self._config_item_list)):
+            item = self._config_item_list[n]
+            if(ITEM_TYPE_ECHO == item.type):
+                if(item.topic == topic):
+                    pnls = table.indexWidget(model.index(n, TBL_COL_INPUT)).findChildren(QLineEdit)
+
+                    for pIdx in range(len(pnls)):
+                        txtEdit = pnls[pIdx]
+                        key = txtEdit.property("topic_nm")
+
+                        # print("key =%s val =%s" % (key, topicValues[key]))
+                        txtEdit.setText(topicValues[key])
+
+                        # print("[%d] objNm =%s key =%s" % (pIdx, txtEdit.objectName(), txtEdit.property("topic_nm").toString()))
+                    # print(pnls)
+                    # print("hit topic, n =%d, len =%d" % (n, len(pnls)))

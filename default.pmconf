@@ -1,6 +1,8 @@
 "Title:","位相シフト用パラメータ $ROS_NAMESPACE"
 #comment
-"Echo:gridboard/error","再投影誤差"
+#"Echo:gridboard/error","再投影誤差"
+"Echo:/turtle1/pose","亀位置X\n亀位置Y\n亀向き\n亀並進速度\n亀角速度"
+"Echo:/turtle1/pose","亀位置X2\n亀位置Y2\n亀向き2\n亀並進速度2\n亀角速度2"
 "Number:camera/ExposureTime","露光時間(usec)"
 "camera/ExposureTime","露光時間(usec)"
 "Text:camera/ID","カメラID"
