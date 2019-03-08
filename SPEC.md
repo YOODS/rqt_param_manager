@@ -81,16 +81,17 @@ rostopic info /robot/tf
 ~~~
 Type: geometry_msgs/Transform
 ~~~
-となります。なのでmsgtype=":以降の文字をパース”して、Pythonのexecにパースさせます。
+となります。Type以下をパースして。  
+msgclass="geometry_msgs"
+msgtype="Transform"
+としInterpreterにパースさせます。
 ~~~
-exec("from "+...+"import "...."+"as msg1")
+exec("from "+msgclass+"import "+msgtype)
 ~~~
-これでsubscriberに
+さらに以下をInterpreterにパースさせる。
 ~~~
-rospy.sbscriber("topic名",msg1,callback)
+exec("rospy.subscriber("+topic名+","+msgtype+",callback")")  
 ~~~
-と出来ないかな・・・
-
 
 ### 2-5. 数値パラメータの表記
 表示例の4行目が数値パラメータです。  
