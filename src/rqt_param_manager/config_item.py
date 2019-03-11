@@ -30,15 +30,17 @@ class ConfigItem(QObject):
     topic_items = []
 
     param_nm = ""
-    file_option = ""
-    trigger = ""
+    param_type = ""
     param_val = None
 
+    file_option = ""
+    trigger = ""
+    
     # signals
     invoke_trigger = QtCore.Signal(str)
 
     @classmethod
-    def trim(self, str):
+    def _trim(self, str):
         str = str.strip()
         str = str.lstrip('"')
         str = str.rstrip('"')
@@ -51,25 +53,25 @@ class ConfigItem(QObject):
 
         line_tokens = line.split(",")
         if(len(line_tokens) > 0):
-            type_tokens = self.trim(line_tokens[0]).split(":")
+            type_tokens = self._trim(line_tokens[0]).split(":")
             if(len(type_tokens) == 0):
                 return False
 
             type = type_tokens[0].strip()
             if("Title" == type):
-                result = self._parseLineTitle(type_tokens, line_tokens)
+                result = self._parse_line_title(type_tokens, line_tokens)
             elif("Echo" == type):
-                result = self._parseLineEcho(type_tokens, line_tokens)
+                result = self._parse_line_echo(type_tokens, line_tokens)
             elif("Number" == type):
-                result = self._parseLineNumber(type_tokens, line_tokens)
+                result = self._parse_line_number(type_tokens, line_tokens)
             elif("Text" == type):
-                result = self._parseLineText(type_tokens, line_tokens)
+                result = self._parse_line_text(type_tokens, line_tokens)
             elif("File" == type):
-                result = self._parseLineFile(type_tokens, line_tokens)
+                result = self._parse_line_file(type_tokens, line_tokens)
             elif("Trigger" == type):
-                result = self._parseLineTrigger(type_tokens, line_tokens)
+                result = self._parse_line_trigger(type_tokens, line_tokens)
             else:
-                result = self._parseLineNumber(type_tokens, line_tokens)
+                result = self._parse_line_number(type_tokens, line_tokens)
 
             if(result and len(self.prefix) > 0):
                 if(len(self.param_nm) > 0 and self.param_nm[0] != '/'):
@@ -77,10 +79,11 @@ class ConfigItem(QObject):
 
         return result
 
-    def _parseLineTitle(self, type_tokens, line_tokens):
+
+    def _parse_line_title(self, type_tokens, line_tokens):
         self.type = ITEM_TYPE_TITLE
         if(len(line_tokens) > 1):
-            self.label = self.trim(line_tokens[1])
+            self.label = self._trim(line_tokens[1])
 
             try:
                 self.label = string.Template(self.label).substitute(os.environ)
@@ -91,46 +94,41 @@ class ConfigItem(QObject):
 
         return True
 
-    def _parseLineEcho(self, type_tokens, line_tokens):
+    def _parse_line_echo(self, type_tokens, line_tokens):
         self.type = ITEM_TYPE_ECHO
-
-        if(len(line_tokens) > 1):
-            # self.label = self.trim(line_tokens[1])
+        
+        line_token_num = len(line_tokens)
+        if(line_token_num > 1):
+            # self.label = self._trim(line_tokens[1])
             self.label = "topic"
-            self.topic_item_labels = self.trim(line_tokens[1]).split('\\n')
+            self.topic_item_labels = self._trim(line_tokens[1]).split('\\n')
         else:
             return False
 
         n = len(type_tokens)
         if(n > 1):
             self.topic = type_tokens[1].strip()
-
+        
+        result = False
         try:
-            topicTypeInfo = rostopic.get_topic_type(self.topic)
-            # print(topicTypeInfo[0])
-            if(topicTypeInfo[0] is not None):
-                topicMsg = rosmsg.get_msg_text(topicTypeInfo[0])
+            topic_type_info = rostopic.get_topic_type(self.topic)
+            # print(topic_type_info[0])
+            if( topic_type_info[0] is not None):
+                topic_msg = rosmsg.get_msg_text(topic_type_info[0])
+                self.topic_items = self._parse_topic_items(self.topic, topic_msg)
 
-                # topicMsg = rosmsg.get_msg_text("sensor_msgs/CameraInfo")
-                # topicMsgNm = topicTypeInfo[0]
-                # if(topicMsgNm):
-                #    topicMsg = rosmsg.get_msg_text(topicMsgNm)
-                #    dct = ast.literal_eval(topicMsg)
-                #    print(dct)
-
-                self.topic_items = self._parsetopicItems(self.topic, topicMsg)
-                # print( self.topic_items)
+                result = True
         except NameError as ne:
             rospy.logerr("topic info get failed. %s", self.topic)
             print(ne)
 
-        return True
+        return result
 
-    def _parseLineNumber(self, type_tokens, line_tokens):
+    def _parse_line_number(self, type_tokens, line_tokens):
         self.type = ITEM_TYPE_NUMBER
 
         if(len(line_tokens) > 1):
-            self.label = self.trim(line_tokens[1])
+            self.label = self._trim(line_tokens[1])
         else:
             return False
 
@@ -142,13 +140,15 @@ class ConfigItem(QObject):
         else:
             return False
 
+        result , self.param_type = self._get_param_type(self.param_nm)
+
         return True
 
-    def _parseLineText(self, type_tokens, line_tokens):
+    def _parse_line_text(self, type_tokens, line_tokens):
         self.type = ITEM_TYPE_TEXT
 
         if(len(line_tokens) > 1):
-            self.label = self.trim(line_tokens[1])
+            self.label = self._trim(line_tokens[1])
         else:
             return False
 
@@ -157,14 +157,16 @@ class ConfigItem(QObject):
         else:
             return False
 
+        result , self.param_type = self._get_param_type(self.param_nm)
+
         return True
 
-    def _parseLineFile(self, type_tokens, line_tokens):
+    def _parse_line_file(self, type_tokens, line_tokens):
         self.type = ITEM_TYPE_FILE
 
         n = len(line_tokens)
         if(n > 1):
-            self.label = self.trim(line_tokens[1])
+            self.label = self._trim(line_tokens[1])
         else:
             return False
 
@@ -178,11 +180,11 @@ class ConfigItem(QObject):
 
         return True
 
-    def _parseLineTrigger(self, type_tokens, line_tokens):
+    def _parse_line_trigger(self, type_tokens, line_tokens):
         self.type = ITEM_TYPE_TRIGGER
 
         if(len(line_tokens) > 1):
-            self.label = self.trim(line_tokens[1])
+            self.label = self._trim(line_tokens[1])
         else:
             return False
 
@@ -199,15 +201,15 @@ class ConfigItem(QObject):
         if(self.type == ITEM_TYPE_TRIGGER):
             self.invoke_trigger.emit(self.trigger)
 
-    def _parsetopicItems(self, topic, topic_msg):
-        topicItems = []
+    def _parse_topic_items(self, topic, topic_msg):
+        topic_items = []
 
-        topicHeader = ""
-        topicMsgType = ""
-        topicNmTypeSections = []
+        topic_header = ""
+        topic_msg_type = ""
+        topic_nm_type_sections = []
 
-        preLv = -1
-        preHeaderLv = -1
+        pre_lv = -1
+        pre_header_lv = -1
 
         lines = topic_msg.split('\n')
 
@@ -231,31 +233,31 @@ class ConfigItem(QObject):
             val2 = tokens[curLv+1].strip()
 
             if(val1.find("/") >= 0):
-                # print("lv pre =%s cur =%d %s" % (preLv,curLv,line.strip()))
+                # print("lv pre =%s cur =%d %s" % (pre_lv,curLv,line.strip()))
 
-                topicMsgType = val1
+                topic_msg_type = val1
                 act = ""
-                if(preHeaderLv == curLv):
+                if(pre_header_lv == curLv):
                     act = "same"
-                    topicNmTypeSections.pop()
-                    topicNmTypeSections.append(val2)
-                elif(preHeaderLv > curLv):
+                    topic_nm_type_sections.pop()
+                    topic_nm_type_sections.append(val2)
+                elif(pre_header_lv > curLv):
                     act = "down"
-                    topicNmTypeSections = topicNmTypeSections[:curLv]
-                    topicNmTypeSections.append(val2)
+                    topic_nm_type_sections = topic_nm_type_sections[:curLv]
+                    topic_nm_type_sections.append(val2)
                 else:
                     act = "up  "
-                    topicNmTypeSections.append(val2)
+                    topic_nm_type_sections.append(val2)
 
-                # print("H [%d] (%s) name =%s" % (curLv,act,"/".join(topicNmTypeSections)))
-                preHeaderLv = curLv
+                # print("H [%d] (%s) name =%s" % (curLv,act,"/".join(topic_nm_type_sections)))
+                pre_header_lv = curLv
 
             else:
                 values = val2.split("=")
                 topicNm = values[0]
 
-                if(len(topicNmTypeSections) > 0):
-                    topicNm = "/".join(topicNmTypeSections[0:curLv]) + "/" + topicNm
+                if(len(topic_nm_type_sections) > 0):
+                    topicNm = "/".join(topic_nm_type_sections[0:curLv]) + "/" + topicNm
 
                 # print("V [%d] name =%s type =%s" % (curLv,topicNm,val1))
 
@@ -263,12 +265,35 @@ class ConfigItem(QObject):
                 # data.nm = topicNm
                 # data.topic = topic
                 # data.type = val1
-                # topicItems.append(data)
-                topicItems.append({"name": topicNm, "type": val1, "topic": topic})
+                # topic_items.append(data)
+                topic_items.append({"name": topicNm, "type": val1, "topic": topic})
 
-            preLv = curLv
+            pre_lv = curLv
 
-        return topicItems
+        return topic_items
+
+    def _get_param_type(self, param_nm):
+        result = False
+        param_type = None
+        try:
+            param_type = type(rospy.get_param(param_nm))
+            result = True
+        except Exception as err:
+            rospy.logerr("param type get failed. param_nm=%s err=%s", param_nm, err)
+
+        return result, param_type
+
+    def get_param_value(self, inputVal):
+        val = None
+        if(self.param_type is int):
+            val = int(inputVal)
+        elif(self.param_type is float):
+            val = float(inputVal)
+        else:
+            val = str(inputVal)
+        
+        return val
+
 
     def toString(self):
 

@@ -347,14 +347,14 @@ class RqtParamManagerPlugin(Plugin):
                     table.setIndexWidget(model.index(n, TBL_COL_INPUT), pnl)
 
             elif(ITEM_TYPE_NUMBER == item.type or ITEM_TYPE_TEXT == item.type):
-                txtEdit = QLineEdit()
-                txtEdit.setFrame(False)
-                txtEdit.setText(INVALID_VAL)
-                txtEdit.textEdited.connect(self._on_text_modified)
-                txtEdit.editingFinished.connect(self._on_text_changed)
+                txt_edit = QLineEdit()
+                txt_edit.setFrame(False)
+                txt_edit.setText(INVALID_VAL)
+                txt_edit.textEdited.connect(self._on_text_modified)
+                txt_edit.editingFinished.connect(self._on_text_changed)
 
-                table.setIndexWidget(model.index(n, TBL_COL_INPUT), txtEdit)
-                self._table_input_item_map[txtEdit] = item
+                table.setIndexWidget(model.index(n, TBL_COL_INPUT), txt_edit)
+                self._table_input_item_map[txt_edit] = item
                 item.param_val = INVALID_VAL
 
             elif(ITEM_TYPE_FILE == item.type):
@@ -390,11 +390,11 @@ class RqtParamManagerPlugin(Plugin):
         try:
             item = self._table_input_item_map[sender]
             if(item.type == ITEM_TYPE_NUMBER or item.type == ITEM_TYPE_TEXT):
-                txtEdit = sender
-                if(item.param_val != txtEdit.text()):
-                    txtEdit.setStyleSheet('color: rgb(255, 0, 0);')
+                txt_edit = sender
+                if(item.param_val != txt_edit.text()):
+                    txt_edit.setStyleSheet('color: rgb(255, 0, 0);')
                 else:
-                    txtEdit.setStyleSheet('color: rgb(0, 0, 0);')
+                    txt_edit.setStyleSheet('color: rgb(0, 0, 0);')
         except Exception as err:
             pass
 
@@ -403,11 +403,11 @@ class RqtParamManagerPlugin(Plugin):
         try:
             item = self._table_input_item_map[sender]
             if(item.type == ITEM_TYPE_NUMBER or item.type == ITEM_TYPE_TEXT):
-                txtEdit = sender
-                param_val = txtEdit.text().strip()
+                txt_edit = sender
+                param_val = txt_edit.text().strip()
                 if(param_val != item.param_val):
                     if(self._invoke_param_set(item, param_val)):
-                        txtEdit.setStyleSheet('color: rgb(0, 0, 0);')
+                        txt_edit.setStyleSheet('color: rgb(0, 0, 0);')
 
         except Exception as err:
             print(err)
@@ -435,7 +435,7 @@ class RqtParamManagerPlugin(Plugin):
             key = key[0]
 
             if(item.type == ITEM_TYPE_NUMBER or item.type == ITEM_TYPE_TEXT):
-                txtEdit = key
+                txt_edit = key
 
                 val = INVALID_VAL
                 if(len(item.param_nm) > 0):
@@ -448,21 +448,21 @@ class RqtParamManagerPlugin(Plugin):
                 # print("item_param_val =" + item.param_val + " invalidval ="+ val)
                 if(item.param_val != val):
                     item.param_val = str(val)
-                    txtEdit.setText(item.param_val)
-                    txtEdit.setStyleSheet('color: rgb(0, 0, 0);')
+                    txt_edit.setText(item.param_val)
+                    txt_edit.setStyleSheet('color: rgb(0, 0, 0);')
 
     def _start_topic_listen(self, items):
 
-        listenedTopics = []
+        listened_topics = []
 
         for item in items:
             if(ITEM_TYPE_ECHO == item.type):
                 try:
-                    listenedTopics.index(item.topic)
+                    listened_topics.index(item.topic)
                     # もうすでに購読済みなので何もしない
                 except ValueError as ve:
                     # 未購読
-                    listenedTopics.append(item.topic)
+                    listened_topics.append(item.topic)
 
                     thread = RosTopicListener()
                     thread._topic = item.topic
@@ -476,19 +476,11 @@ class RqtParamManagerPlugin(Plugin):
         # print("val =" + val)
         result = False
         try:
-            param_type = type(rospy.get_param(item.param_nm))
-
-            if(param_type is int):
-                upd_val = int(val)
-            elif(param_type is float):
-                upd_val = float(val)
-            else:
-                upd_val = str(val)
-
-            rospy.set_param(item.param_nm, upd_val)
+            val = item.get_param_value(val)
+            rospy.set_param(item.param_nm, val)
             result = True
         except Exception as err:
-            print(err)
+            rospy.logerr("param value write failed. param_nm=%s val=%s err=%s", item.param_nm, val, err)
 
         return result
 
@@ -545,7 +537,8 @@ class RqtParamManagerPlugin(Plugin):
 
         self._monitor_timer.stop()
         self._widget.setEnabled(False)
-"""
+
+        """
         # if not self._on_exec_update(True):
         #    QMessageBox.critical(self._widget, "エラー", "パラメータの更新と保存に失敗しました。")
         #    self._monitor_timer.start()
@@ -563,7 +556,8 @@ class RqtParamManagerPlugin(Plugin):
 
         self._monitor_timer.start()
         self._widget.setEnabled(True)
-"""
+        """
+
 
     def _on_exec_trigger(self, trigger):
         print("trigger =" + trigger)
@@ -582,12 +576,12 @@ class RqtParamManagerPlugin(Plugin):
                     pnls = table.indexWidget(model.index(n, TBL_COL_INPUT)).findChildren(QLineEdit)
 
                     for pIdx in range(len(pnls)):
-                        txtEdit = pnls[pIdx]
-                        key = txtEdit.property("topic_nm")
+                        txt_edit = pnls[pIdx]
+                        key = txt_edit.property("topic_nm")
 
                         # print("key =%s val =%s" % (key, topicValues[key]))
-                        txtEdit.setText(topicValues[key])
+                        txt_edit.setText(topicValues[key])
 
-                        # print("[%d] objNm =%s key =%s" % (pIdx, txtEdit.objectName(), txtEdit.property("topic_nm").toString()))
+                        # print("[%d] objNm =%s key =%s" % (pIdx, txt_edit.objectName(), txt_edit.property("topic_nm").toString()))
                     # print(pnls)
                     # print("hit topic, n =%d, len =%d" % (n, len(pnls)))
