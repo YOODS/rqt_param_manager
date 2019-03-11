@@ -590,10 +590,15 @@ class RqtParamManagerPlugin(Plugin):
 
     @QtCore.pyqtSlot()
     def _on_topic_publish_exec(self):
+
         sender = self.sender()
         topic_nm = ""
         try:
             topic_nm = sender.property(WID_PROP_TOPIC_NM)
+            confirm_msg = "トピック「{}」のパブリッシュを実行しますか？".format(topic_nm)
+            if(not self._showdialog("確認", confirm_msg)):
+                return
+
             pub = rospy.Publisher(topic_nm, std_msgs.msg.Bool, queue_size=10)
             pub.publish(True)
             QMessageBox.information(
@@ -608,3 +613,16 @@ class RqtParamManagerPlugin(Plugin):
                 self._widget,
                 "エラー",
                 "トピック「{}」のパブリッシュに失敗しました。".format(topic_nm))
+
+    def _showdialog(self, title, msg):
+        mbox = QMessageBox(self._widget)
+        mbox.setIcon(QMessageBox.Question)
+        mbox.setText(msg)
+        # mbox.setInformativeText("This is additional information")
+        mbox.setWindowTitle(title)
+        # mbox.setDetailedText("The details are as follows:")
+        mbox.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+        # mbox.buttonClicked.connect(msgbtn)
+
+        retval = mbox.exec_()
+        return QMessageBox.Ok == retval
