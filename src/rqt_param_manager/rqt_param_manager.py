@@ -21,9 +21,11 @@ from python_qt_binding.QtWidgets import *
 #    QPushButton,
 #    QLabel
 # )
+from std_msgs.msg import *
+
 from config_item import *
 from ros_topic_listener_thread import *
-from std_msgs.msg import *
+from ros_param_writer import *
 
 # ================ 定数一覧 ================
 FILE_ENC = "utf-8"
@@ -83,6 +85,7 @@ class RqtParamManagerPlugin(Plugin):
         self._table_input_item_map = {}
         self._topic_listeners = []
         self._topic_data_map = {}
+        self._prm_writer = None
 
         self.setObjectName('RqtParamManagerPlugin')
 
@@ -210,27 +213,6 @@ class RqtParamManagerPlugin(Plugin):
             for self_ros_param_name in self_ros_param_names:
                 rospy.delete_param(self_ros_param_name)
         """
-
-    def save_settings(self, plugin_settings, instance_settings):
-        """設定保存処理"""
-
-        # TODO save intrinsic configuration, usually using:
-        # instance_settings.set_value(k, v)
-        pass
-
-    def restore_settings(self, plugin_settings, instance_settings):
-        """設定復帰処理"""
-
-        # TODO restore intrinsic configuration, usually using:
-        # v = instance_settings.value(k)
-        pass
-
-    # def trigger_configuration(self):
-        # Comment in to signal that the plugin has a way
-        # to configure
-        # This will enable a setting button(gear icon)
-        # in each dock widget title bar
-        # Usually used to open a modal configuration dialog
 
     def _parse_args(self, argv):
         """引数パース処理"""
@@ -484,10 +466,10 @@ class RqtParamManagerPlugin(Plugin):
         # print("val =" + val)
         result = False
         try:
-            if(not rospy.has_param(item.param_nm) ):
-                rospy.logerr("param name is not found. nm=%s", item.param_nm )
+            if(not rospy.has_param(item.param_nm)):
+                rospy.logerr("param name is not found. nm=%s", item.param_nm)
                 return False
-                
+
             val = item.get_param_value(val)
             rospy.set_param(item.param_nm, val)
             result = True
@@ -497,67 +479,65 @@ class RqtParamManagerPlugin(Plugin):
 
         return result
 
-#    def _on_exec_update(self, from_save = False):
-#        """パラメータ更新実行処理"""
-#
-#        result = False
-#        table = self._widget.tblConfigItems
-#        row_num = table.rowCount()
-#
-#        upd_num = 0
-#        ok_num = 0
-#        for n in range(row_num):
-#            cur_val = table.item(n, TBL_COL_INPUT).text()
-#            # upd_val = table.item(n, TBL_COL_ACTION).text()
-#
-#            if cur_val == upd_val or \
-#               INVALID_VAL == upd_val or \
-#               len(upd_val) <= 0:
-#                pass
-#            else:
-#                param = self._params[n]
-#                upd_num += 1
-#
-#                import yaml
-#                try:
-#                    param_nm = param[KEY_CONFFILE_PARAM_NM]
-#                    param_type = type(rospy.get_param(param_nm))
-#                    if(param_type is int):
-#                        upd_val = int(upd_val)
-#                    elif(param_type is float):
-#                        upd_val = float(upd_val)
-#                    elif(param_type is list):
-#                        upd_val = yaml.load(upd_val)
-#                    rospy.set_param(param_nm, upd_val)
-#                    rospy.loginfo("param_nm =%s val =%s", param_nm, upd_val)
-#                    ok_num += 1
-#                except(KeyError, ValueError) as e:
-#                    rospy.logerr(
-#                        "update failed. paramNo =%d cause =%s",
-#                        n,
-#                        e
-#                    )
-#
-#        if upd_num != ok_num:
-#            if not from_save:
-#                QMessageBox.critical(self._widget, "エラー", "パラメータの更新に失敗しました。")
-#        else:
-#            result = True
-#        return result
-
     def _on_exec_save(self):
         """パラメータ保存実行処理"""
+        if(self._prm_writer is not None):
+            QMessageBox.warning(
+                self._widget,
+                "警告",
+                "パラメータ保存実行中です")
+            return
+
+        param_config_items = []
+        for item in self._config_items:
+            if(ITEM_TYPE_NUMBER == item.type or ITEM_TYPE_TEXT == item.type):
+                param_config_items.append(item)
+
+        if(len(self._dump_yaml_file_path) == 0):
+            QMessageBox.information(
+                self._widget,
+                "お知らせ",
+                "保存先が指定されていません")
+            return
+
+        if(len(param_config_items) == 0):
+            QMessageBox.information(
+                self._widget,
+                "お知らせ",
+                "保存対象がありません")
+            return
 
         self._monitor_timer.stop()
         self._widget.setEnabled(False)
 
+        table = self._widget.tblConfigItems
+        model = table.model()
+
+        self._prm_writer = RosParamWriter()
+        self._prm_writer.work_finished.connect(
+            self._on_param_writer_work_finished)
+        self._prm_writer.finished.connect(self._prm_writer.deleteLater)
+        self._prm_writer.param_config_items = param_config_items
+        self._prm_writer.dump_file_path = self._dump_yaml_file_path
+
+        self._prm_writer.start()
+
+    def _on_param_writer_work_finished(self, result):
+        self._prm_writer = None
         self._monitor_timer.start()
         self._widget.setEnabled(True)
 
-    # def _on_exec_trigger(self, trigger):
-    #     print("trigger =" + trigger)
+        if(not result):
+            QMessageBox.warning(
+                self._widget,
+                "警告",
+                "パラメータが正常に保存できませんでした")
+        else:
+            QMessageBox.information(
+                self._widget,
+                "お知らせ",
+                "パラメータを保存しました")
 
-    # @QtCore.pyqtSlot()
     def _on_topic_value_received(self, result, topic, topic_values):
         # print("topic value received."
         #       " result =%d topic = %s" % (result, topic))

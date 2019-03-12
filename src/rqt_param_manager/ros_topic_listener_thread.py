@@ -24,20 +24,30 @@ class RosTopicListener(QtCore.QThread):
         # call(["rostopic","echo","-n","1","/turtle1/pose"])
 
         while not self._canceled:
-            p = subprocess.Popen(["rostopic", "echo", "-n", "1", "/turtle1/pose"], stdin = subprocess.PIPE, stdout = subprocess.PIPE, stderr = subprocess.PIPE, shell = False)
+            p = subprocess.Popen(
+                ["rostopic", "echo", "-n", "1", "/turtle1/pose"],
+                stdin=subprocess.PIPE,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                shell=False)
             ret = p.wait()
             if(ret):
                 # 失敗したら待つ
                 time.sleep(10)
                 err_str = p.stderr.readlines()
-                print("topic get failed. topic =%s %s" % (self._topic, err_str))
+                print("topic get failed. topic =%s %s" % (
+                    self._topic,
+                    err_str))
 
                 self.received_topic_values.emit(false, self._topic, ())
             else:
                 lines = p.stdout.readlines()
                 topic_values = self._on_parse_topic_cho(self._topic, lines)
 
-                self.received_topic_values.emit(True, self._topic, topic_values)
+                self.received_topic_values.emit(
+                    True,
+                    self._topic,
+                    topic_values)
 
                 if(self._interval > 0):
                     time.sleep(self._interval)
@@ -46,7 +56,7 @@ class RosTopicListener(QtCore.QThread):
         #    self.printLog(self._topic,str(i))
         #    time.sleep(1)
 
-        print("finished")
+        # print("finished")
         self.finished.emit()
 
     def _on_parse_topic_cho(self, topic, lines):
@@ -105,7 +115,10 @@ class RosTopicListener(QtCore.QThread):
                     act = "up  "
                     topic_nm_type_sections.append(key)
 
-                # print("H [%d] (%s) name =%s" % (curLv,act,"/".join(topic_nm_type_sections)))
+                # print("H [%d] (%s) name =%s" % (
+                #    curLv,
+                #    act,
+                #    "/".join(topic_nm_type_sections)))
                 pre_header_lv = curLv
 
             else:
