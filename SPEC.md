@@ -129,7 +129,7 @@ exec("rospy.subscriber("+topic名+","+msgtype+",callback")")
 パブリッシャは、パラメータではなくトピックにパブリッシュ(std_msgs/Bool)します。
 この表示に対応するConfig fileでの記述は下記となります。
 ~~~
-"Publisher:/rovi/X1","3D撮像"
+"Publish:/rovi/X1","3D撮像"
 ~~~
 ＜実行＞ボタンを押すと、std_msgs/Boolをpublishします。  
 「確認」のダイアログが出た方が親切かもしれない。
