@@ -121,6 +121,8 @@ class RqtParamManagerPlugin(Plugin):
 
         QTimer.singleShot(0, self._update_window_title)
 
+        self._widget.btnClose.clicked.connect(self._app_close)
+
         if not result_load_conf:
             # self._widget.btnUpdate.setEnabled(False)
             self._widget.btnSave.setEnabled(False)
@@ -198,9 +200,13 @@ class RqtParamManagerPlugin(Plugin):
 
         table.verticalHeader().hide()
 
+    def _app_close(self):
+        self._monitor_timer.stop()
+        QCoreApplication.quit()
+
     def shutdown_plugin(self):
         """シャットダウン処理"""
-
+        print("Shutdown !!!")
         self._monitor_timer.stop()
 
         """
@@ -583,13 +589,19 @@ class RqtParamManagerPlugin(Plugin):
             if(not self._showdialog("確認", confirm_msg)):
                 return
 
-            pub = rospy.Publisher(topic_nm, std_msgs.msg.Bool, queue_size=10)
+            pub = rospy.Publisher(
+                topic_nm,
+                std_msgs.msg.Bool,
+                queue_size=1,
+                latch=True)
             pub.publish(True)
+
             QMessageBox.information(
                 self._widget,
                 "お知らせ",
                 "トピック「{}」のパブリッシュを実行しました。".format(topic_nm))
         except Exception as err:
+            print("err=%s" % err)
             rospy.logerr(
                 "topic publish failed. topic=%s err=%s",
                 topic_nm, err)
