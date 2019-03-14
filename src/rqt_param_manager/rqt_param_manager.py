@@ -206,7 +206,6 @@ class RqtParamManagerPlugin(Plugin):
 
     def shutdown_plugin(self):
         """シャットダウン処理"""
-        print("Shutdown !!!")
         self._monitor_timer.stop()
 
         """
@@ -254,7 +253,7 @@ class RqtParamManagerPlugin(Plugin):
                         rospy.logerr("conf file wrong line. %s", line)
                     else:
                         # print("[%02d] %s" % (len(items), item.toString()))
-                        if(ITEM_TYPE_TITLE == item.type):
+                        if(ITEM_TYPE_TITLE == item.type and len(items) == 0):
                             self._title = item.label
 
                         items.append(item)
