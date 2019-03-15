@@ -59,8 +59,9 @@ class RosParamWriter(QtCore.QThread):
                 yaml.dump(param_data_map, yf, default_flow_style=False)
         except Exception as err:
             rospy.logerr(
-                "param data save failed. path=%s",
-                self.dump_file_path)
+                "param data save failed. path=%s. cause=%s",
+                self.dump_file_path,
+                err)
             result = False
 
         self.work_finished.emit(result)
