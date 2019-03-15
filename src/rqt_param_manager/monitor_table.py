@@ -54,12 +54,13 @@ class MonitorTable(QTableWidget):
     colLabelWidthRatio = None
     colLabelWidthFixed = None
     _config_items = []
+    _table_input_item_map = {}
+    _param_txtedit_map = {}
 
     def __init__(self, parent):
         """初期化処理"""
         super(MonitorTable, self).__init__(parent)
         # self.initUI()
-        self._table_input_item_map = {}
 
     def initUI(self):
         """パラメータテーブル設定処理"""
@@ -177,6 +178,15 @@ class MonitorTable(QTableWidget):
 
                 self.setIndexWidget(model.index(n, TBL_COL_INPUT), txt_edit)
                 self._table_input_item_map[txt_edit] = item
+
+                if(item.param_nm in self._param_txtedit_map):
+                    self._param_txtedit_map[item.param_nm].append(txt_edit)
+                else:
+                    self._param_txtedit_map[item.param_nm] = [txt_edit]
+
+                if(ITEM_TYPE_NUMBER == item.type):
+                    txt_edit.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+
                 item.param_val = INVALID_VAL
 
             elif(ITEM_TYPE_FILE == item.type):
@@ -251,6 +261,13 @@ class MonitorTable(QTableWidget):
                          "param_nm=%s val=%s err=%s", item.param_nm, val, err)
 
         return result
+
+    def update_param_value(self, param_nm, param_val):
+        if(param_nm in self._param_txtedit_map):
+            txt_edits = self._param_txtedit_map[param_nm]
+            for txt_edit in txt_edits:
+                txt_edit.setText(param_val)
+                txt_edit.setStyleSheet('color: rgb(0, 0, 0);')
 
     @QtCore.pyqtSlot()
     def _on_topic_publish_exec(self):

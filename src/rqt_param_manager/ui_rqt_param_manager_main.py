@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
 
-# Form implementation generated from reading ui file 
+# Form implementation generated from reading ui file
 # 'rqt_param_manager_main.ui'
 #
 # Created by: PyQt5 UI code generator 5.12
@@ -22,11 +22,11 @@ class Ui_rqt_param_manager_main(object):
         self.verticalLayout_2 = QtWidgets.QVBoxLayout(self.pnlBody)
         self.verticalLayout_2.setContentsMargins(0, 0, 0, 0)
         self.verticalLayout_2.setObjectName("verticalLayout_2")
-        self.tblConfigItems = MonitorTable(self.pnlBody)
-        self.tblConfigItems.setObjectName("tblConfigItems")
-        self.tblConfigItems.setColumnCount(0)
-        self.tblConfigItems.setRowCount(0)
-        self.verticalLayout_2.addWidget(self.tblConfigItems)
+        self.tblMonitor = MonitorTable(self.pnlBody)
+        self.tblMonitor.setObjectName("tblMonitor")
+        self.tblMonitor.setColumnCount(0)
+        self.tblMonitor.setRowCount(0)
+        self.verticalLayout_2.addWidget(self.tblMonitor)
         self.verticalLayout.addWidget(self.pnlBody)
         self.pnlFooter = QtWidgets.QWidget(rqt_param_manager_main)
         sizePolicy = QtWidgets.QSizePolicy(QtWidgets.QSizePolicy.Preferred, QtWidgets.QSizePolicy.Maximum)

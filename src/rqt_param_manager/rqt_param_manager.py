@@ -35,8 +35,6 @@ KEY_ENV_ROS_NAMESPACE = "ROS_NAMESPACE"
 ARG_DUMP = "dump"
 ARG_CONF = "conf"
 ARG_COLUMN_WIDTH_LABEL = "col_label_width"
-ARG_WIN_WIDTH = "win_width"
-ARG_WIN_HEIGHT = "win_height"
 
 WID_PROP_TOPIC_NM = "topic_nm"
 
@@ -63,6 +61,7 @@ class RqtParamManagerPlugin(Plugin):
         self._topic_listeners = []
         self._topic_data_map = {}
         self._prm_writer = None
+        self._param_data_map = {}
 
         self.setObjectName('RqtParamManagerPlugin')
 
@@ -81,7 +80,7 @@ class RqtParamManagerPlugin(Plugin):
         self.ui.setupUi(self._widget)
         context.add_widget(self._widget)
 
-        self.ui.tblConfigItems.initUI()
+        self.ui.tblMonitor.initUI()
 
         self._initEnv(args)
 
@@ -100,16 +99,7 @@ class RqtParamManagerPlugin(Plugin):
             self.ui.btnSave.clicked.connect(self._on_exec_save)
             self._monitor_timer.timeout.connect(self._on_period_monitoring)
 
-            self.ui.tblConfigItems.load_items(self._config_items)
-
-            # テーブル行とパラメータ数のチェック
-            # table_row_num = self.ui.tblConfigItems.rowCount()
-
-            # ---一時コメント
-#            param_num = len(self._params)
-#            if table_row_num != param_num or param_num == 0:
-#                self.ui.btnUpdate.setEnabled(False)
-#                self.ui.btnSave.setEnabled(False)
+            self.ui.tblMonitor.load_items(self._config_items)
 
             # 定期監視処理の開始
             if self._get_interval > 0:
@@ -131,42 +121,17 @@ class RqtParamManagerPlugin(Plugin):
         if(ARG_COLUMN_WIDTH_LABEL in args):
             val = args[ARG_COLUMN_WIDTH_LABEL]
             try:
+                table = self.ui.tblMonitor
                 if(val.endswith("px")):
-                    self.ui.tblConfigItems.colLabelWidthFixed = int(val[:-2])
+                    table.colLabelWidthFixed = int(val[:-2])
                 elif(val.endswith("%")):
-                    self.ui.tblConfigItems.colLabelWidthRatio = int(val[:-1]) / 100.0
+                    table.colLabelWidthRatio = int(val[:-1]) / 100.0
                 else:
-                    self.ui.tblConfigItems.colLabelWidthFixed = int(val)
+                    table.colLabelWidthFixed = int(val)
             except Exception as e:
-                rospy.logerr("label column width set failed. val=%s. cause=%s", val, e)
-
-        """
-        widSize = self._widget.size()
-
-        if(ARG_WIN_WIDTH in args):
-            val = args[ARG_WIN_WIDTH]
-            try:
-                if(val.endswith("px")):
-                    widSize.setWidth(int(val[:-2]))
-                else:
-                    widSize.setWidth(int(val))
-            except Exception as e:
-                rospy.logerr("window width set failed. val=%s. cause=%s",val, e)
-
-        if(ARG_WIN_HEIGHT in args):
-            val = args[ARG_WIN_HEIGHT]
-            try:
-                if(val.endswith("px")):
-                    widSize.setHeight(int(val[:-2]))
-                else:
-                    widSize.setHeight(int(val))
-            except Exception as e:
-                rospy.logerr("window height set failed. val=%s. cause=%s",val, e)
-
-        if(self._widget.size() != widSize):
-            print("org %dx%d. win:%dx%d" % (self._widget.size().width(),self._widget.size().height(),widSize.width(),widSize.height()))
-            self._widget.setGeometry(0,0,300,300)
-        """
+                rospy.logerr(
+                    "label column width set failed. val=%s. cause=%s",
+                    val, e)
 
     def _update_window_title(self):
         """ウィンドウタイトルを変更する処理"""
@@ -233,7 +198,12 @@ class RqtParamManagerPlugin(Plugin):
                         # print("[%02d] %s" % (len(items), item.toString()))
                         if(ITEM_TYPE_TITLE == item.type and len(items) == 0):
                             self._title = item.label
+                        elif(ITEM_TYPE_TEXT == item.type or
+                             ITEM_TYPE_NUMBER == item.type):
 
+                            if(len(item.param_nm) > 0 and
+                               item.param_nm not in self._param_data_map):
+                                self._param_data_map[item.param_nm] = ""
                         items.append(item)
 
                 file.close()
@@ -249,41 +219,29 @@ class RqtParamManagerPlugin(Plugin):
     def _on_period_monitoring(self):
         """定期監視処理"""
 
-        table = self.ui.tblConfigItems
-        item_num = len(self._config_items)
+        table = self.ui.tblMonitor
 
-        for n in range(item_num):
-            item = self._config_items[n]
-
-            key = None
+        param_data_map = {}
+        for param_nm in self._param_data_map.keys():
+            val = INVALID_VAL
+            param_data_map[param_nm] = val
             try:
-                key = [k for k,
-                       v in self.ui.tblConfigItems._table_input_item_map.items()
-                       if v is item]
+                val = rospy.get_param(param_nm)
+                param_data_map[param_nm] = val
             except Exception as err:
-                print(err)
-                key = None
+                # print(err)
+                pass
 
-            if(not key or len(key) == 0):
-                continue
+            pre_param_data = ""
+            if(param_nm in self._param_data_map):
+                pre_param_data = self._param_data_map[param_nm]
+            modified = pre_param_data != val
 
-            key = key[0]
-
-            if(item.type == ITEM_TYPE_NUMBER or item.type == ITEM_TYPE_TEXT):
-                txt_edit = key
-
-                val = INVALID_VAL
-                if(len(item.param_nm) > 0):
-                    try:
-                        val = str(rospy.get_param(item.param_nm))
-                    except Exception as err:
-                        # print(err)
-                        pass
-
-                if(item.param_val != val):
-                    item.param_val = str(val)
-                    txt_edit.setText(item.param_val)
-                    txt_edit.setStyleSheet('color: rgb(0, 0, 0);')
+            if(modified):
+                curValStr = str(val)
+                table.update_param_value(param_nm, curValStr)
+        self._param_data_map = param_data_map
+        return
 
     def _start_topic_listen(self, items):
         listened_topics = []
@@ -301,7 +259,7 @@ class RqtParamManagerPlugin(Plugin):
                     thread._topic = item.topic
                     self._topic_listeners.append(thread)
                     thread.received_topic_values.connect(
-                        self.ui.tblConfigItems._on_update_topic_values)
+                        self.ui.tblMonitor._on_update_topic_values)
 
                     thread.start()
                 except Except as err:
