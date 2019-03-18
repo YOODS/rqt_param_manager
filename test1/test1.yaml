@@ -1,0 +1,20 @@
+cropper:
+  method: "open3d"
+  scale: 1000
+  zcrop:
+    near: 0
+    far: 100
+  sphare:
+    x: 1
+    y: 2
+    z: 3
+    r: 50
+regist_master_model:
+  ransac:
+    fitness_threshold: 0.8
+    max_iteration: 30
+  icp:
+    fitness_threshold: 0.8
+    translation_threshold:
+      upper_x: 10
+      lower_x: 1

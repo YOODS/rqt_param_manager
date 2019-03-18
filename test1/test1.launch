@@ -1,7 +1,6 @@
 <launch>
-  <rosparam ns="test" command="load" file="param.yaml" />
-  <rosparam ns="test" command="load" file="param2.yaml" />
-  <node pkg="rqt_param_manager" ns="test" type="test1.py" name="test1" output="screen" />
-  <node pkg="rovi" type="paraman.js" name="paraman1" args="/test/hist /test/hist/param" output="screen" />
-  <node pkg="rovi" type="paraman.js" name="paraman2" args="/test/solver /test/hist/param" />
+  <rosparam command="load" file="test1.yaml" />
+  <node pkg="rovi" type="param_watch.js" name="param_cropping" args="/cropper /test1/param" />
+  <node pkg="rqt_param_manager" type="test1.py" name="test1" output="screen" />
+  <node pkg="rqt_param_manager" type="rqt_param_manager" name="test1_gui" args="conf:=$(find rqt_param_manager)/test1/default.pm"  />
 </launch>
