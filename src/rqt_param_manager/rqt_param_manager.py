@@ -83,6 +83,7 @@ class RqtParamManagerPlugin(Plugin):
 
         tblMon = self.ui.tblMonitor
         tblMon.initUI()
+        tblMon.invoke_topic_pub.connect(self._on_topic_publish_invoke)
 
         self._initEnv(args)
 
@@ -313,6 +314,33 @@ class RqtParamManagerPlugin(Plugin):
                 self._widget,
                 "お知らせ",
                 "パラメータを保存しました")
+
+    def _on_topic_publish_invoke(self, topic_nm):
+        try:
+            confirm_msg = "トピック「{}」のパブリッシュを実行しますか？".format(topic_nm)
+            if(not self._showdialog("確認", confirm_msg)):
+                return
+
+            pub = rospy.Publisher(
+                topic_nm,
+                std_msgs.msg.Bool,
+                queue_size=1,
+                latch=True)
+            pub.publish(True)
+
+            QMessageBox.information(
+                self._widget,
+                "お知らせ",
+                "トピック「{}」のパブリッシュを実行しました。".format(topic_nm))
+        except Exception as err:
+            print("err=%s" % err)
+            rospy.logerr(
+                "topic publish failed. topic=%s err=%s",
+                topic_nm, err)
+            QMessageBox.critical(
+                self._widget,
+                "エラー",
+                "トピック「{}」のパブリッシュに失敗しました。".format(topic_nm))
 
     def _showdialog(self, title, msg):
         mbox = QMessageBox(self._widget)

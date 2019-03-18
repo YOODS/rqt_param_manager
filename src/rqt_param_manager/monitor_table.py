@@ -50,6 +50,7 @@ class NotEditableDelegate(QItemDelegate):
 
 class MonitorTable(QTableWidget):
     """UIのメインクラス"""
+    invoke_topic_pub = QtCore.Signal(str)
 
     colLabelWidthRatio = None
     colLabelWidthFixed = None
@@ -195,7 +196,7 @@ class MonitorTable(QTableWidget):
                 btn = QPushButton()
                 btn.setText("実行")
                 btn.setProperty(WID_PROP_TOPIC_NM, item.topic)
-                btn.clicked.connect(self._on_topic_publish_exec)
+                btn.clicked.connect(self._on_exec_button_clicked)
                 self.setIndexWidget(model.index(n, TBL_COL_ACTION), btn)
 
                 # item.invoke_trigger.connect(self._on_exec_trigger)
@@ -287,36 +288,11 @@ class MonitorTable(QTableWidget):
         self._pre_param_values = param_values
 
     @QtCore.pyqtSlot()
-    def _on_topic_publish_exec(self):
-
+    def _on_exec_button_clicked(self):
         sender = self.sender()
-        topic_nm = ""
-        try:
+        if(sender):
             topic_nm = sender.property(WID_PROP_TOPIC_NM)
-            confirm_msg = "トピック「{}」のパブリッシュを実行しますか？".format(topic_nm)
-            if(not self._showdialog("確認", confirm_msg)):
-                return
-
-            pub = rospy.Publisher(
-                topic_nm,
-                std_msgs.msg.Bool,
-                queue_size=1,
-                latch=True)
-            pub.publish(True)
-
-            QMessageBox.information(
-                self,
-                "お知らせ",
-                "トピック「{}」のパブリッシュを実行しました。".format(topic_nm))
-        except Exception as err:
-            print("err=%s" % err)
-            rospy.logerr(
-                "topic publish failed. topic=%s err=%s",
-                topic_nm, err)
-            QMessageBox.critical(
-                self,
-                "エラー",
-                "トピック「{}」のパブリッシュに失敗しました。".format(topic_nm))
+            self.invoke_topic_pub.emit(topic_nm)
 
     def _on_update_topic_values(self, result, topic, topic_values):
         model = self.model()
