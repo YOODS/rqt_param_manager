@@ -61,7 +61,8 @@ class RqtParamManagerPlugin(Plugin):
         self._topic_listeners = []
         self._topic_data_map = {}
         self._prm_writer = None
-        self._param_data_map = {}
+        self._monitor_param_nms = []
+        self._param_values = {}
 
         self.setObjectName('RqtParamManagerPlugin')
 
@@ -80,14 +81,14 @@ class RqtParamManagerPlugin(Plugin):
         self.ui.setupUi(self._widget)
         context.add_widget(self._widget)
 
-        self.ui.tblMonitor.initUI()
+        tblMon = self.ui.tblMonitor
+        tblMon.initUI()
 
         self._initEnv(args)
 
         result_load_conf = self._parse_conf_file(self._conf_file_path_list,
                                                  self._config_items,
                                                  self._topic_data_map)
-
         QTimer.singleShot(0, self._update_window_title)
 
         self.ui.btnClose.clicked.connect(self._app_close)
@@ -99,7 +100,8 @@ class RqtParamManagerPlugin(Plugin):
             self.ui.btnSave.clicked.connect(self._on_exec_save)
             self._monitor_timer.timeout.connect(self._on_period_monitoring)
 
-            self.ui.tblMonitor.load_items(self._config_items)
+            tblMon.load_items(self._config_items)
+            self._monitor_param_nms = tblMon.get_monitor_param_nms()
 
             # 定期監視処理の開始
             if self._get_interval > 0:
@@ -184,6 +186,7 @@ class RqtParamManagerPlugin(Plugin):
 
             try:
                 file = open(conf_file_path, 'r')
+                set_title = False
                 for line in file:
                     line = line.strip()
                     if(len(line) == 0 or line[0] == "#"):
@@ -196,14 +199,13 @@ class RqtParamManagerPlugin(Plugin):
                         rospy.logerr("conf file wrong line. %s", line)
                     else:
                         # print("[%02d] %s" % (len(items), item.toString()))
-                        if(ITEM_TYPE_TITLE == item.type and len(items) == 0):
-                            self._title = item.label
-                        elif(ITEM_TYPE_TEXT == item.type or
-                             ITEM_TYPE_NUMBER == item.type):
+                        if(ITEM_TYPE_TITLE == item.type and
+                           len(items) == 0 and
+                           not set_title):
 
-                            if(len(item.param_nm) > 0 and
-                               item.param_nm not in self._param_data_map):
-                                self._param_data_map[item.param_nm] = ""
+                            self._title = item.label
+                            set_title = True
+                            continue
                         items.append(item)
 
                 file.close()
@@ -221,27 +223,18 @@ class RqtParamManagerPlugin(Plugin):
 
         table = self.ui.tblMonitor
 
-        param_data_map = {}
-        for param_nm in self._param_data_map.keys():
-            val = INVALID_VAL
-            param_data_map[param_nm] = val
+        param_values = {}
+        for param_nm in self._monitor_param_nms:
+            param_values[param_nm] = None
             try:
                 val = rospy.get_param(param_nm)
-                param_data_map[param_nm] = val
+                param_values[param_nm] = val
             except Exception as err:
-                # print(err)
+                print(err)
                 pass
 
-            pre_param_data = ""
-            if(param_nm in self._param_data_map):
-                pre_param_data = self._param_data_map[param_nm]
-            modified = pre_param_data != val
-
-            if(modified):
-                curValStr = str(val)
-                table.update_param_value(param_nm, curValStr)
-        self._param_data_map = param_data_map
-        return
+        table.update_param_values(param_values)
+        self._param_values = param_values
 
     def _start_topic_listen(self, items):
         listened_topics = []

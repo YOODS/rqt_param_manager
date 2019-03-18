@@ -56,6 +56,7 @@ class MonitorTable(QTableWidget):
     _config_items = []
     _table_input_item_map = {}
     _param_txtedit_map = {}
+    _pre_param_values = {}
 
     def __init__(self, parent):
         """初期化処理"""
@@ -131,17 +132,6 @@ class MonitorTable(QTableWidget):
                 self.setSpan(n, TBL_COL_LABEL, 1, 3)
 
             elif(ITEM_TYPE_ECHO == item.type):
-                """
-                if(len(item.topic) > 0):
-                    self.setItem(
-                        n,
-                        TBL_COL_INPUT,
-                        QTableWidgetItem(INVALID_VAL)
-                    )
-                else:
-                    self.setSpan(n, TBL_COL_LABEL, 1, 3)
-                """
-
                 if(len(item.topic_items) != 0):
                     pnl = QWidget()
                     layout = QVBoxLayout()
@@ -223,7 +213,12 @@ class MonitorTable(QTableWidget):
             item = self._table_input_item_map[sender]
             if(item.type == ITEM_TYPE_NUMBER or item.type == ITEM_TYPE_TEXT):
                 txt_edit = sender
-                if(item.param_val != txt_edit.text()):
+                pre_param_val_str = ""
+                if(item.param_nm in self._pre_param_values):
+                    pre_param_val_str = str(
+                        self._pre_param_values[item.param_nm])
+
+                if(pre_param_val_str != txt_edit.text()):
                     txt_edit.setStyleSheet('color: rgb(255, 0, 0);')
                 else:
                     txt_edit.setStyleSheet('color: rgb(0, 0, 0);')
@@ -236,9 +231,14 @@ class MonitorTable(QTableWidget):
             item = self._table_input_item_map[sender]
             if(item.type == ITEM_TYPE_NUMBER or item.type == ITEM_TYPE_TEXT):
                 txt_edit = sender
-                param_val = txt_edit.text().strip()
-                if(param_val != item.param_val):
-                    if(self._invoke_param_set(item, param_val)):
+                cur_param_val_str = txt_edit.text().strip()
+                pre_param_val_str = ""
+                if(item.param_nm in self._pre_param_values):
+                    pre_param_val_str = str(
+                        self._pre_param_values[item.param_nm])
+
+                if(cur_param_val_str != pre_param_val_str):
+                    if(self._invoke_param_set(item, cur_param_val_str)):
                         txt_edit.setStyleSheet('color: rgb(0, 0, 0);')
 
         except Exception as err:
@@ -262,12 +262,29 @@ class MonitorTable(QTableWidget):
 
         return result
 
-    def update_param_value(self, param_nm, param_val):
-        if(param_nm in self._param_txtedit_map):
-            txt_edits = self._param_txtedit_map[param_nm]
-            for txt_edit in txt_edits:
-                txt_edit.setText(param_val)
-                txt_edit.setStyleSheet('color: rgb(0, 0, 0);')
+    def get_monitor_param_nms(self):
+        return self._param_txtedit_map.keys()
+
+    def update_param_values(self, param_values):
+        for param_nm, txt_edits in self._param_txtedit_map.items():
+            pre_val = ""
+            if(param_nm in self._pre_param_values):
+                pre_val = self._pre_param_values[param_nm]
+            cur_val = ""
+            if(param_nm in param_values):
+                cur_val = param_values[param_nm]
+
+            if(pre_val != cur_val):
+                if(cur_val is None):
+                    cur_val_str = INVALID_VAL
+                else:
+                    cur_val_str = str(cur_val)
+
+                for txt_edit in txt_edits:
+                    txt_edit.setText(cur_val_str)
+                    txt_edit.setStyleSheet('color: rgb(0, 0, 0);')
+
+        self._pre_param_values = param_values
 
     @QtCore.pyqtSlot()
     def _on_topic_publish_exec(self):

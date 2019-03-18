@@ -31,7 +31,6 @@ class ConfigItem():
 
     param_nm = ""
     param_type = ""
-    param_val = None
 
     file_option = ""
 
