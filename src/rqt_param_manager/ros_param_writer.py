@@ -37,10 +37,7 @@ class RosParamWriter(QtCore.QThread):
         param_data_map = {}
         for item in self.param_config_items:
             try:
-
                 val = item.get_param_value(rospy.get_param(item.param_nm))
-                # print("param_val=%s type=%s" % (val,type(val)))
-
                 tokens = item.param_nm.split("/")
                 if(len(tokens) < 2 or len(tokens[0]) != 0):
                     result = False

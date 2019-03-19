@@ -18,24 +18,18 @@ class RosTopicListener(QtCore.QThread):
         QtCore.QThread.__init__(self, parent)
 
     def run(self):
-        print("start: topic =%s" % self._topic)
-
-        # call(["rostopic","echo","/turtle1/pose"])
-        # call(["rostopic","echo","-n","1","/turtle1/pose"])
-
         while not self._canceled:
             p = subprocess.Popen(
-                ["rostopic", "echo", "-n", "1", "/turtle1/pose"],
+                ["rostopic", "echo", "-n", "1", self._topic],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 shell=False)
             ret = p.wait()
             if(ret):
-                # 失敗したら待つ
                 time.sleep(10)
                 err_str = p.stderr.readlines()
-                print("topic get failed. topic =%s %s" % (
+                rospy.logerr("topic get failed. topic =%s %s" % (
                     self._topic,
                     err_str))
 
@@ -43,25 +37,17 @@ class RosTopicListener(QtCore.QThread):
             else:
                 lines = p.stdout.readlines()
                 topic_values = self._on_parse_topic_cho(self._topic, lines)
-
                 self.received_topic_values.emit(
                     True,
                     self._topic,
                     topic_values)
-
                 if(self._interval > 0):
                     time.sleep(self._interval)
 
-        # for i in range(100):
-        #    self.printLog(self._topic,str(i))
-        #    time.sleep(1)
-
-        # print("finished")
         self.finished.emit()
 
     def _on_parse_topic_cho(self, topic, lines):
         topic_values = {}
-        # print("topic_values = %s" % type(topic_values))
         topic_header = ""
         sections = []
 
@@ -90,18 +76,13 @@ class RosTopicListener(QtCore.QThread):
                 if(len(token) == 0):
                     curLv = curLv+1
 
-            # print("tokenLen =%d curLv =%d" % (len(tokens),curLv))
             if(len(tokens) - curLv < 1):
                 print("unknown format. line =%s" % line.strip())
                 continue
 
             key = tokens[curLv]
 
-            # print("key =%s val =%s" % (key,val))
-
             if(len(val) == 0):
-                # print("lv pre =%s cur =%d %s" % (pre_lv,curLv,line.strip()))
-
                 act = ""
                 if(pre_header_lv == curLv):
                     act = "same"
@@ -115,10 +96,6 @@ class RosTopicListener(QtCore.QThread):
                     act = "up  "
                     sections.append(key)
 
-                # print("H [%d] (%s) name =%s" % (
-                #    curLv,
-                #    act,
-                #    "/".join(sections)))
                 pre_header_lv = curLv
 
             else:
@@ -127,7 +104,6 @@ class RosTopicListener(QtCore.QThread):
                 if(curLv > 0):
                     topicNm = "/".join(sections[0:curLv]) + "/" + topicNm
 
-                # print("V [%d] name =%s val =%s" % (curLv,topicNm,val))
                 topic_values[topicNm] = val
 
             pre_lv = curLv
