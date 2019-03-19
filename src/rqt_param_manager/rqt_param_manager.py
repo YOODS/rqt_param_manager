@@ -218,8 +218,7 @@ class RqtParamManagerPlugin(Plugin):
                     # 未購読
                     listened_topics.append(item.topic)
 
-                    thread = RosTopicListener()
-                    thread._topic = item.topic
+                    thread = RosTopicListener(item.topic)
                     self._topic_listeners.append(thread)
                     thread.received_topic_values.connect(
                         self.ui.tblMonitor._on_update_topic_values)

@@ -14,8 +14,9 @@ class RosTopicListener(QtCore.QThread):
     _canceled = False
     _interval = 1
 
-    def __init__(self, parent=None):
+    def __init__(self, topic, parent=None):
         QtCore.QThread.__init__(self, parent)
+        self._topic=topic
 
     def run(self):
         while not self._canceled:
@@ -36,7 +37,7 @@ class RosTopicListener(QtCore.QThread):
                 self.received_topic_values.emit(false, self._topic, ())
             else:
                 lines = p.stdout.readlines()
-                topic_values = self._on_parse_topic_cho(self._topic, lines)
+                topic_values = self._on_parse_topic_echo(self._topic, lines)
                 self.received_topic_values.emit(
                     True,
                     self._topic,
@@ -46,7 +47,7 @@ class RosTopicListener(QtCore.QThread):
 
         self.finished.emit()
 
-    def _on_parse_topic_cho(self, topic, lines):
+    def _on_parse_topic_echo(self, topic, lines):
         topic_values = {}
         topic_header = ""
         sections = []
@@ -83,21 +84,16 @@ class RosTopicListener(QtCore.QThread):
             key = tokens[curLv]
 
             if(len(val) == 0):
-                act = ""
                 if(pre_header_lv == curLv):
-                    act = "same"
                     sections.pop()
                     sections.append(key)
                 elif(pre_header_lv > curLv):
-                    act = "down"
                     sections = sections[:curLv]
                     sections.append(key)
                 else:
-                    act = "up  "
                     sections.append(key)
 
                 pre_header_lv = curLv
-
             else:
                 topicNm = key
 
