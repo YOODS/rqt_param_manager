@@ -12,17 +12,7 @@ from python_qt_binding import loadUi
 from python_qt_binding.QtGui import *
 from python_qt_binding.QtCore import QTimer, QVariant, QPoint
 from python_qt_binding.QtWidgets import *
-# from python_qt_binding.QtWidgets import (
-#    QWidget,
-#    QTableWidgetItem,
-#    QItemDelegate,
-#    QHeaderView,
-#    QMessageBox,
-#    QPushButton,
-#    QLabel
-# )
 from std_msgs.msg import *
-
 from config_item import *
 from ros_topic_listener_thread import *
 from ros_param_writer import *
@@ -35,7 +25,6 @@ KEY_ENV_ROS_NAMESPACE = "ROS_NAMESPACE"
 ARG_DUMP = "dump"
 ARG_CONF = "conf"
 ARG_COLUMN_WIDTH_LABEL = "col_label_width"
-
 WID_PROP_TOPIC_NM = "topic_nm"
 
 # ================ クラス ================
@@ -97,7 +86,6 @@ class RqtParamManagerPlugin(Plugin):
         if not result_load_conf:
             self.ui.btnSave.setEnabled(False)
         else:
-            # bind connections
             self.ui.btnSave.clicked.connect(self._on_exec_save)
             self._monitor_timer.timeout.connect(self._on_period_monitoring)
 
@@ -142,11 +130,6 @@ class RqtParamManagerPlugin(Plugin):
         # 初期化処理内でsetWindowTitleを呼んでも変更されないので
         self._widget.setWindowTitle(self._title)
 
-        # serial_number = context.serial_number()
-        # if serial_number > 1:
-        #    self.ui.setWindowTitle(
-        #        self.ui.windowTitle() + (' (%d)' % serial_number))
-
     def _app_close(self):
         self._monitor_timer.stop()
         QCoreApplication.quit()
@@ -154,17 +137,6 @@ class RqtParamManagerPlugin(Plugin):
     def shutdown_plugin(self):
         """シャットダウン処理"""
         self._monitor_timer.stop()
-
-        """
-        # UIが終了してもrosparamに「/rqt_gui_py_node_<no>/conffile」
-        # が残っているので削除。この処理が必要なのかどうか不明だが。
-        # まぁやっておく。
-        self_ros_param_names = [s for s in rospy.get_param_names()
-                                if rospy.get_name() in s]
-        if len(self_ros_param_names):
-            for self_ros_param_name in self_ros_param_names:
-                rospy.delete_param(self_ros_param_name)
-        """
 
     def _parse_args(self, argv, args):
         """引数パース処理"""
@@ -191,7 +163,6 @@ class RqtParamManagerPlugin(Plugin):
                 for line in file:
                     line = line.strip()
                     if(len(line) == 0 or line[0] == "#"):
-                        # print("invalid or comment line. line =" + line)
                         continue
 
                     item = ConfigItem()
@@ -199,7 +170,6 @@ class RqtParamManagerPlugin(Plugin):
                     if(not item.parse(line, topic_data_map)):
                         rospy.logerr("conf file wrong line. %s", line)
                     else:
-                        # print("[%02d] %s" % (len(items), item.toString()))
                         if(ITEM_TYPE_TITLE == item.type and
                            len(items) == 0 and
                            not set_title):
@@ -231,7 +201,6 @@ class RqtParamManagerPlugin(Plugin):
                 val = rospy.get_param(param_nm)
                 param_values[param_nm] = val
             except Exception as err:
-                # print(err)
                 pass
 
         table.update_param_values(param_values)

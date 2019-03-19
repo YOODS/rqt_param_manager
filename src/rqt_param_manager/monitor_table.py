@@ -1,24 +1,12 @@
 # -*- coding: utf-8 -*-
 
 # ================ インポート一覧 ================
-import sys
-import os
 import rospy
-import rospkg
 import string
-
-from qt_gui.plugin import Plugin
-from python_qt_binding import loadUi
 from python_qt_binding.QtGui import *
-from python_qt_binding.QtCore import QTimer, QVariant, QPoint
 from python_qt_binding.QtWidgets import *
-from std_msgs.msg import *
-
 from config_item import *
-from ros_topic_listener_thread import *
-from ros_param_writer import *
 
-# ================ 定数一覧 ================
 # ================ 定数一覧 ================
 TBL_COL_LABEL = 0
 TBL_COL_INPUT = 1
@@ -62,7 +50,6 @@ class MonitorTable(QTableWidget):
     def __init__(self, parent):
         """初期化処理"""
         super(MonitorTable, self).__init__(parent)
-        # self.initUI()
 
     def initUI(self):
         """パラメータテーブル設定処理"""
@@ -187,7 +174,6 @@ class MonitorTable(QTableWidget):
                 btn = QPushButton()
                 btn.setText("一覧")
                 self.setIndexWidget(model.index(n, TBL_COL_ACTION), btn)
-                # btn.clicked.connect(item._on_action)
 
             elif(ITEM_TYPE_PUBLISHER == item.type):
                 lbl = QLabel()
@@ -199,7 +185,6 @@ class MonitorTable(QTableWidget):
                 btn.clicked.connect(self._on_exec_button_clicked)
                 self.setIndexWidget(model.index(n, TBL_COL_ACTION), btn)
 
-                # item.invoke_trigger.connect(self._on_exec_trigger)
             else:
                 self.setItem(
                     n,
@@ -247,7 +232,6 @@ class MonitorTable(QTableWidget):
             pass
 
     def _invoke_param_set(self, item, val):
-        # print("val =" + val)
         result = False
         try:
             if(not rospy.has_param(item.param_nm)):
@@ -308,20 +292,9 @@ class MonitorTable(QTableWidget):
                             txt_edit = pnls[pIdx]
                             try:
                                 key = txt_edit.property(WID_PROP_TOPIC_NM)
-
-                                # print("key=%s val=%s" % (
-                                #     key,
-                                #     topic_values[key]))
                                 txt_edit.setText(topic_values[key])
-
-                                # print("[%d] objNm =%s key =%s" % (
-                                #            pIdx,
-                                #            txt_edit.objectName(),
-                                #            key))
                             except(KeyError) as e:
                                 pass
-                        # print(pnls)
-                        # print("hit topic, n =%d, len =%d" % (n, len(pnls)))
 
     def _showdialog(self, title, msg):
         mbox = QMessageBox(self)
@@ -336,8 +309,6 @@ class MonitorTable(QTableWidget):
     def resizeEvent(self, event):
         widWidth = event.size().width()
         widHeight = event.size().height()
-#        print("width=%d height=%d" % (widWidth, widHeight))
-
         colActWidth = self.columnWidth(TBL_COL_ACTION)
 
         if(self.colLabelWidthRatio is not None):

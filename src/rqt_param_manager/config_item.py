@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+
+# ================ インポート一覧 ================
 import sys
 import os
 import rospy
@@ -11,6 +13,7 @@ import ast
 from python_qt_binding import QtCore
 from python_qt_binding.QtCore import *
 
+# ================ 定数一覧 ================
 ITEM_TYPE_NONE = 0
 ITEM_TYPE_TITLE = 1
 ITEM_TYPE_ECHO = 2
@@ -19,23 +22,20 @@ ITEM_TYPE_TEXT = 4
 ITEM_TYPE_FILE = 5
 ITEM_TYPE_PUBLISHER = 6
 
+# ================ クラス一覧 ================
+
 
 class ConfigItem():
-    # def __init__(self):
-
     prefix = ""
     type = ITEM_TYPE_NONE
     label = "不明"
     topic = ""
     topic_items = []
-
     param_nm = ""
     param_type = ""
-
     file_option = ""
 
-    # signals
-    # invoke_trigger = QtCore.Signal(str)
+    # def __init__(self):
 
     @classmethod
     def _trim(self, str):
@@ -46,8 +46,6 @@ class ConfigItem():
 
     def parse(self, line, topic_data_map):
         result = False
-        # print(os.environ)
-        # print("line ="+line)
 
         line_tokens = line.split(",")
         if(len(line_tokens) > 0):
@@ -68,7 +66,6 @@ class ConfigItem():
             elif("Text" == type):
                 result = self._parse_line_text(type_tokens, line_tokens)
             elif("File" == type):
-                # result = self._parse_line_file(type_tokens, line_tokens)
                 rospy.logerr("file item not supported. %s", line)
             elif("Publisher" == type):
                 result = self._parse_line_publisher(
@@ -102,7 +99,6 @@ class ConfigItem():
 
         line_token_num = len(line_tokens)
         if(line_token_num > 1):
-            # self.label = self._trim(line_tokens[1])
             self.label = "topic"
             self.topic_item_labels = self._trim(line_tokens[1]).split('\\n')
         else:
@@ -155,27 +151,6 @@ class ConfigItem():
         result, self.param_type = self._get_param_type(self.param_nm)
 
         return True
-
-    """
-    def _parse_line_file(self, type_tokens, line_tokens):
-        self.type = ITEM_TYPE_FILE
-
-        n = len(line_tokens)
-        if(n > 1):
-            self.label = self._trim(line_tokens[1])
-        else:
-            return False
-
-        if(n > 2):
-            self.file_option = line_tokens[2].strip()
-
-        if(len(type_tokens) == 2):
-            self.param_nm = type_tokens[1].strip()
-        else:
-            return False
-
-        return True
-    """
 
     def _parse_line_publisher(self, type_tokens, line_tokens, topic_data_map):
         self.type = ITEM_TYPE_PUBLISHER
@@ -263,8 +238,6 @@ class ConfigItem():
             val2 = tokens[curLv+1].strip()
 
             if(val1.find("/") >= 0):
-                # print("lv pre =%s cur =%d %s" % (pre_lv,curLv,line.strip()))
-
                 topic_msg_type = val1
                 act = ""
                 if(pre_header_lv == curLv):
@@ -279,11 +252,6 @@ class ConfigItem():
                     act = "up  "
                     topic_nm_type_sections.append(val2)
 
-                # print("H [%d] (%s) name =%s" % (
-                #    curLv,
-                #    act,
-                #    "/".join(topic_nm_type_sections)))
-
                 pre_header_lv = curLv
 
             else:
@@ -292,14 +260,6 @@ class ConfigItem():
                 if(curLv > 0):
                     topic_parent_nm = topic_nm_type_sections[0:curLv]
                     topic_nm = "/".join(topic_parent_nm) + "/" + topic_nm
-
-                # print("V [%d] name =%s type =%s" % (curLv,topic_nm,val1))
-
-                # data = RosTopicData
-                # data.nm = topic_nm
-                # data.topic = topic
-                # data.type = val1
-                # topic_items.append(data)
                 topic_items.append({"name": topic_nm, "type": val1})
 
             pre_lv = curLv
