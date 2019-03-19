@@ -231,7 +231,7 @@ class RqtParamManagerPlugin(Plugin):
                 val = rospy.get_param(param_nm)
                 param_values[param_nm] = val
             except Exception as err:
-                print(err)
+                # print(err)
                 pass
 
         table.update_param_values(param_values)

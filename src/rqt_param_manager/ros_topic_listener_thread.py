@@ -63,7 +63,7 @@ class RosTopicListener(QtCore.QThread):
         topic_values = {}
         # print("topic_values = %s" % type(topic_values))
         topic_header = ""
-        topic_nm_type_sections = []
+        sections = []
 
         pre_lv = -1
         pre_header_lv = -1
@@ -105,27 +105,27 @@ class RosTopicListener(QtCore.QThread):
                 act = ""
                 if(pre_header_lv == curLv):
                     act = "same"
-                    topic_nm_type_sections.pop()
-                    topic_nm_type_sections.append(key)
+                    sections.pop()
+                    sections.append(key)
                 elif(pre_header_lv > curLv):
                     act = "down"
-                    topic_nm_type_sections = topic_nm_type_sections[:curLv]
-                    topic_nm_type_sections.append(key)
+                    sections = sections[:curLv]
+                    sections.append(key)
                 else:
                     act = "up  "
-                    topic_nm_type_sections.append(key)
+                    sections.append(key)
 
                 # print("H [%d] (%s) name =%s" % (
                 #    curLv,
                 #    act,
-                #    "/".join(topic_nm_type_sections)))
+                #    "/".join(sections)))
                 pre_header_lv = curLv
 
             else:
                 topicNm = key
 
                 if(curLv > 0):
-                    topicNm = "/".join(topic_nm_type_sections[0:curLv]) + "/" + topicNm
+                    topicNm = "/".join(sections[0:curLv]) + "/" + topicNm
 
                 # print("V [%d] name =%s val =%s" % (curLv,topicNm,val))
                 topic_values[topicNm] = val

@@ -5,6 +5,6 @@
 "Number:/rovi/camera/Height","カメラ高さ"
 "/rovi/camera/Width","カメラ幅"
 "Text:/rovi/camera/ID","カメラID"
-"File:solver/model_name","モデルデータファイル","data/*.ply"
 "Publisher:/rovi/ycam_ctrl/stat","3D撮像"
 "Number:/background_b","亀スイミング背景(青)"
+"Number:/background_b","亀スイミング背景(青2)"

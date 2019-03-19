@@ -68,7 +68,8 @@ class ConfigItem():
             elif("Text" == type):
                 result = self._parse_line_text(type_tokens, line_tokens)
             elif("File" == type):
-                result = self._parse_line_file(type_tokens, line_tokens)
+                # result = self._parse_line_file(type_tokens, line_tokens)
+                rospy.logerr("file item not supported. %s", line)
             elif("Publisher" == type):
                 result = self._parse_line_publisher(
                     type_tokens,
@@ -80,9 +81,6 @@ class ConfigItem():
             if(result and len(self.prefix) > 0):
                 if(len(self.param_nm) > 0 and self.param_nm[0] != '/'):
                     self.param_nm = self.prefix + self.param_nm
-
-        # print(self._to_string())
-
         return result
 
     def _parse_line_title(self, type_tokens, line_tokens):
@@ -158,6 +156,7 @@ class ConfigItem():
 
         return True
 
+    """
     def _parse_line_file(self, type_tokens, line_tokens):
         self.type = ITEM_TYPE_FILE
 
@@ -176,6 +175,7 @@ class ConfigItem():
             return False
 
         return True
+    """
 
     def _parse_line_publisher(self, type_tokens, line_tokens, topic_data_map):
         self.type = ITEM_TYPE_PUBLISHER

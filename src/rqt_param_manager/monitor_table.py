@@ -296,7 +296,6 @@ class MonitorTable(QTableWidget):
 
     def _on_update_topic_values(self, result, topic, topic_values):
         model = self.model()
-
         for n in range(len(self._config_items)):
             item = self._config_items[n]
             if(ITEM_TYPE_ECHO == item.type):
