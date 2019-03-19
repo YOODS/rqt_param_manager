@@ -5,51 +5,40 @@ import sys
 import os
 import rospy
 import rospkg
+import string
 
 from qt_gui.plugin import Plugin
 from python_qt_binding import loadUi
-from python_qt_binding import QtGui
-from python_qt_binding.QtCore import QTimer, QVariant
-from python_qt_binding.QtWidgets import (
-    QWidget,
-    QTableWidgetItem,
-    QItemDelegate,
-    QHeaderView,
-    QMessageBox,
-)
+from python_qt_binding.QtGui import *
+from python_qt_binding.QtCore import QTimer, QVariant, QPoint
+from python_qt_binding.QtWidgets import *
+# from python_qt_binding.QtWidgets import (
+#    QWidget,
+#    QTableWidgetItem,
+#    QItemDelegate,
+#    QHeaderView,
+#    QMessageBox,
+#    QPushButton,
+#    QLabel
+# )
+from std_msgs.msg import *
+
+from config_item import *
+from ros_topic_listener_thread import *
+from ros_param_writer import *
+from ui_rqt_param_manager_main import Ui_rqt_param_manager_main
 
 # ================ 定数一覧 ================
-FILE_ENC = "utf-8"
 INVALID_VAL = "---"
-TBL_COL_PARAM_NM = 0
-TBL_COL_PARAM_CUR_VAL = 1
-TBL_COL_PARAM_UPD_VAL = 2
-KEY_CONFFILE_TITLE = "title"
-KEY_CONFFILE_GET_INTERVAL = "getInterval"
-KEY_CONFFILE_DUMP_YAML = "dumpYaml"
-KEY_CONFFILE_PARAMS = "params"
-KEY_CONFFILE_PARAM_NM = "paramName"
-KEY_CONFFILE_PARAM_DISP = "paramDisp"
+FILE_DEFAULT_PM_CONFS = ["default.pmconf", "Default.pmconf"]
+KEY_ENV_ROS_NAMESPACE = "ROS_NAMESPACE"
+ARG_DUMP = "dump"
+ARG_CONF = "conf"
+ARG_COLUMN_WIDTH_LABEL = "col_label_width"
 
+WID_PROP_TOPIC_NM = "topic_nm"
 
-# ================ クラス一覧 ================
-class NotEditableDelegate(QItemDelegate):
-    """特定の列のセルを編集不可にする為に使用するDelegateクラス"""
-
-    def __init__(self, *args):
-        """初期化処理"""
-
-        super(NotEditableDelegate, self).__init__(*args)
-
-    def createEditor(self, parent, option, index):
-        """エディタ作成処理"""
-
-        return None
-
-    def editorEvent(self, event, model, option, index):
-        """エディタイベント処理"""
-
-        return False
+# ================ クラス ================
 
 
 class RqtParamManagerPlugin(Plugin):
@@ -61,59 +50,91 @@ class RqtParamManagerPlugin(Plugin):
         super(RqtParamManagerPlugin, self).__init__(context)
 
         # クラス変数初期化
-        self._title = "不明"
-        self._get_interval = 0
-        self._dump_yaml_file_path = ""
-        self._params = {}
+        self._title = "rqt_param_manager"
+        self._get_interval = 1000
         self._monitor_timer = QTimer()
+        self._conf_file_path_list = FILE_DEFAULT_PM_CONFS
+        self._dump_yaml_file_path = ""
+        self._config_items = []
+        self._ros_namespace = os.environ.get(KEY_ENV_ROS_NAMESPACE, "")
+        self._table_input_item_map = {}
+        self._topic_listeners = []
+        self._topic_data_map = {}
+        self._prm_writer = None
+        self._monitor_param_nms = []
+        self._param_values = {}
 
         self.setObjectName('RqtParamManagerPlugin')
 
-        result_load_conf = self._load_conf_file(sys.argv)
+        args = {}
+        self._parse_args(sys.argv, args)
+
+        if(ARG_CONF in args):
+            self._conf_file_path_list = args[ARG_CONF]
+
+        if(len(self._ros_namespace) > 0 and self._ros_namespace[:-1] != "/"):
+            self._ros_namespace = self._ros_namespace + "/"
 
         # Create QWidget
         self._widget = QWidget()
-        ui_file = os.path.join(
-            rospkg.RosPack().get_path('rqt_param_manager'),
-            'resource',
-            'RqtParamManagerPlugin.ui'
-        )
-
-        loadUi(ui_file, self._widget)
-        self._widget.setObjectName('RqtParamManagerPluginUi')
-
+        self.ui = Ui_rqt_param_manager_main()
+        self.ui.setupUi(self._widget)
         context.add_widget(self._widget)
 
-        self._setup_params_table(self._widget.tblParams)
+        tblMon = self.ui.tblMonitor
+        tblMon.initUI()
+        tblMon.invoke_topic_pub.connect(self._on_topic_publish_invoke)
+
+        self._initEnv(args)
+
+        result_load_conf = self._parse_conf_file(self._conf_file_path_list,
+                                                 self._config_items,
+                                                 self._topic_data_map)
+        QTimer.singleShot(0, self._update_window_title)
+
+        self.ui.btnClose.clicked.connect(self._app_close)
 
         if not result_load_conf:
-            self._widget.btnUpdate.setEnabled(False)
-            self._widget.btnSave.setEnabled(False)
+            self.ui.btnSave.setEnabled(False)
         else:
-            QTimer.singleShot(0, self._update_window_title)
-
             # bind connections
-            self._widget.btnUpdate.clicked.connect(self._on_exec_update)
-            self._widget.btnSave.clicked.connect(self._on_exec_save)
-            self._monitor_timer.timeout.connect(self._on_get_params)
+            self.ui.btnSave.clicked.connect(self._on_exec_save)
+            self._monitor_timer.timeout.connect(self._on_period_monitoring)
 
-            self._load_params_table_item(self._widget.tblParams, self._params)
-
-            # テーブル行とパラメータ数のチェック
-            table_row_num = self._widget.tblParams.rowCount()
-            param_num = len(self._params)
-            if table_row_num != param_num or param_num == 0:
-                self._widget.btnUpdate.setEnabled(False)
-                self._widget.btnSave.setEnabled(False)
+            tblMon.load_items(self._config_items)
+            self._monitor_param_nms = tblMon.get_monitor_param_nms()
 
             # 定期監視処理の開始
             if self._get_interval > 0:
-                self._on_get_params()
+                self._on_period_monitoring()
                 rospy.loginfo(
-                    "start monitor. interval=%d sec",
+                    "start monitor. interval =%d sec",
                     self._get_interval
                 )
-                self._monitor_timer.start(self._get_interval * 1000)
+                self._monitor_timer.start(self._get_interval)
+
+            self._start_topic_listen(self._config_items)
+
+    def _initEnv(self, args):
+        if(ARG_DUMP in args):
+            self._dump_yaml_file_path = args[ARG_DUMP]
+        else:
+            self.ui.btnSave.setVisible(False)
+
+        if(ARG_COLUMN_WIDTH_LABEL in args):
+            val = args[ARG_COLUMN_WIDTH_LABEL]
+            try:
+                table = self.ui.tblMonitor
+                if(val.endswith("px")):
+                    table.colLabelWidthFixed = int(val[:-2])
+                elif(val.endswith("%")):
+                    table.colLabelWidthRatio = int(val[:-1]) / 100.0
+                else:
+                    table.colLabelWidthFixed = int(val)
+            except Exception as e:
+                rospy.logerr(
+                    "label column width set failed. val=%s. cause=%s",
+                    val, e)
 
     def _update_window_title(self):
         """ウィンドウタイトルを変更する処理"""
@@ -123,45 +144,15 @@ class RqtParamManagerPlugin(Plugin):
 
         # serial_number = context.serial_number()
         # if serial_number > 1:
-        #    self._widget.setWindowTitle(
-        #        self._widget.windowTitle() + (' (%d)' % serial_number))
+        #    self.ui.setWindowTitle(
+        #        self.ui.windowTitle() + (' (%d)' % serial_number))
 
-    def _setup_params_table(self, table):
-        """パラメータテーブル設定処理"""
-
-        # 列は3列
-        table.setColumnCount(3)
-
-        # 列1,2は編集不可
-        no_edit_delegate = NotEditableDelegate()
-        table.setItemDelegateForColumn(TBL_COL_PARAM_NM, no_edit_delegate)
-        table.setItemDelegateForColumn(TBL_COL_PARAM_CUR_VAL, no_edit_delegate)
-
-        # ヘッダー列の設定
-        headerCol1 = QTableWidgetItem()
-        headerCol1.setText("パラメータ名")
-        table.setHorizontalHeaderItem(TBL_COL_PARAM_NM, headerCol1)
-
-        headerCol2 = QTableWidgetItem()
-        headerCol2.setText("現在値")
-        table.setHorizontalHeaderItem(TBL_COL_PARAM_CUR_VAL, headerCol2)
-
-        headerCol3 = QTableWidgetItem()
-        headerCol3.setText("更新値")
-        table.setHorizontalHeaderItem(TBL_COL_PARAM_UPD_VAL, headerCol3)
-
-        header = table.horizontalHeader()
-        header.setSectionResizeMode(TBL_COL_PARAM_NM, QHeaderView.Stretch)
-        header.setSectionResizeMode(TBL_COL_PARAM_CUR_VAL, QHeaderView.Fixed)
-        header.setSectionResizeMode(TBL_COL_PARAM_UPD_VAL, QHeaderView.Fixed)
-        table.setColumnWidth(TBL_COL_PARAM_CUR_VAL, 120)
-        table.setColumnWidth(TBL_COL_PARAM_UPD_VAL, 120)
-
-        table.verticalHeader().hide()
+    def _app_close(self):
+        self._monitor_timer.stop()
+        QCoreApplication.quit()
 
     def shutdown_plugin(self):
         """シャットダウン処理"""
-
         self._monitor_timer.stop()
 
         """
@@ -175,195 +166,188 @@ class RqtParamManagerPlugin(Plugin):
                 rospy.delete_param(self_ros_param_name)
         """
 
-    def save_settings(self, plugin_settings, instance_settings):
-        """設定保存処理"""
+    def _parse_args(self, argv, args):
+        """引数パース処理"""
+        for arg in sys.argv:
+            tokens = arg.split(":=")
+            if len(tokens) == 2:
+                key = tokens[0]
+                if(ARG_CONF == key):
+                    args[ARG_CONF] = [tokens[1]]
+                else:
+                    args[key] = tokens[1]
 
-        # TODO save intrinsic configuration, usually using:
-        # instance_settings.set_value(k, v)
-        pass
-
-    def restore_settings(self, plugin_settings, instance_settings):
-        """設定復帰処理"""
-
-        # TODO restore intrinsic configuration, usually using:
-        # v = instance_settings.value(k)
-        pass
-
-    # def trigger_configuration(self):
-        # Comment in to signal that the plugin has a way
-        # to configure
-        # This will enable a setting button (gear icon)
-        # in each dock widget title bar
-        # Usually used to open a modal configuration dialog
-
-    def _load_conf_file(self, argv):
-        """PM設定ファイル読込処理"""
-
-        result = False
-
-        if not len(sys.argv) > 1:
-            rospy.logerr("argv 'conffile' is not specified.")
-        else:
-            tokens = sys.argv[1].split(":=")
-            if len(tokens) == 2 and tokens[0] == "conffile":
-                conf_file_path = tokens[1]
-                result = self._parse_conf_file(conf_file_path)
-            else:
-                rospy.logerr(
-                    "argv 'conffile' is wrong format. %s",
-                    sys.argv[1]
-                )
-
-        return result
-
-    def _parse_conf_file(self, conf_file_path):
+    def _parse_conf_file(self, conf_file_path_list, items, topic_data_map):
         """PM設定ファイル解析処理"""
 
         result = False
 
-        rospy.loginfo("load conf file. path=%s", conf_file_path)
-        import json
-        try:
-            f = open(conf_file_path, 'r')
-            json_dict = json.load(f)
-            self._title = json_dict[KEY_CONFFILE_TITLE]
-            self._get_interval = json_dict[KEY_CONFFILE_GET_INTERVAL]
-            self._dump_yaml_file_path = os.getenv('PMCLIENT_PKG_PATH', '/tmp') + '/' + json_dict[KEY_CONFFILE_DUMP_YAML]
+        for conf_file_path in conf_file_path_list:
+            rospy.loginfo("load conf file. path =%s", conf_file_path)
 
-            rospy.loginfo("title=%s", self._title.encode(FILE_ENC))
-            rospy.loginfo("getInterval=%s sec", self._get_interval)
-            rospy.loginfo(
-                "dumpYaml=%s",
-                self._dump_yaml_file_path.encode(FILE_ENC)
-            )
+            try:
+                file = open(conf_file_path, 'r')
+                set_title = False
+                for line in file:
+                    line = line.strip()
+                    if(len(line) == 0 or line[0] == "#"):
+                        # print("invalid or comment line. line =" + line)
+                        continue
 
-            self._params = json_dict[KEY_CONFFILE_PARAMS]
+                    item = ConfigItem()
+                    item.prefix = self._ros_namespace
+                    if(not item.parse(line, topic_data_map)):
+                        rospy.logerr("conf file wrong line. %s", line)
+                    else:
+                        # print("[%02d] %s" % (len(items), item.toString()))
+                        if(ITEM_TYPE_TITLE == item.type and
+                           len(items) == 0 and
+                           not set_title):
 
-            result = True
-        except IOError as e:
-            rospy.logerr("json file load failed. %s", e)
+                            self._title = item.label
+                            set_title = True
+                            continue
+                        items.append(item)
+
+                file.close()
+                result = True
+            except IOError as e:
+                rospy.logerr("conf file load failed. %s", e)
+
+            if result:
+                break
 
         return result
 
-    def _load_params_table_item(self, table, params):
-        """パラメータテーブル項目読込処理"""
+    def _on_period_monitoring(self):
+        """定期監視処理"""
 
-        param_num = len(params)
-        table.setRowCount(param_num)
-        n = 0
-        for param in params:
+        table = self.ui.tblMonitor
+
+        param_values = {}
+        for param_nm in self._monitor_param_nms:
+            param_values[param_nm] = None
             try:
-                label = param[KEY_CONFFILE_PARAM_DISP]
-                table.setItem(n, TBL_COL_PARAM_NM, QTableWidgetItem(label))
-            except KeyError as e:
-                table.setItem(n, TBL_COL_PARAM_NM, QTableWidgetItem("不明"))
-                rospy.logerr("conf file key error. %s", e)
-
-            table.setItem(
-                n,
-                TBL_COL_PARAM_CUR_VAL,
-                QTableWidgetItem(INVALID_VAL)
-            )
-            table.setItem(n, TBL_COL_PARAM_UPD_VAL, QTableWidgetItem(""))
-            n += 1
-
-    def _on_get_params(self):
-        """パラメータ取得処理"""
-
-        param_num = len(self._params)
-        for n in range(param_num):
-            param = self._params[n]
-            val = INVALID_VAL
-            try:
-                param_nm = param[KEY_CONFFILE_PARAM_NM]
                 val = rospy.get_param(param_nm)
-            except KeyError as e:
-                # エラーに出すと数がすごいことになりそうなので出さない
+                param_values[param_nm] = val
+            except Exception as err:
+                # print(err)
                 pass
-            table = self._widget.tblParams
-            table.setItem(
-                n,
-                TBL_COL_PARAM_CUR_VAL,
-                QTableWidgetItem("%s" % val)
-            )
-            upd_val = table.item(n, TBL_COL_PARAM_UPD_VAL).text()
-            # 無効データ取得 もしくは 初回データ更新
-            if INVALID_VAL == val \
-               or len(upd_val) == 0 \
-               or (INVALID_VAL != val and upd_val == INVALID_VAL):
-                table.setItem(
-                    n,
-                    TBL_COL_PARAM_UPD_VAL,
-                    QTableWidgetItem("%s" % val)
-                )
 
-    def _on_exec_update(self, from_save=False):
-        """パラメータ更新実行処理"""
-        
-        result = False
-        table = self._widget.tblParams
-        row_num = table.rowCount()
+        table.update_param_values(param_values)
+        self._param_values = param_values
 
-        upd_num = 0
-        ok_num = 0
-        for n in range(row_num):
-            cur_val = table.item(n, TBL_COL_PARAM_CUR_VAL).text()
-            upd_val = table.item(n, TBL_COL_PARAM_UPD_VAL).text()
+    def _start_topic_listen(self, items):
+        listened_topics = []
 
-            if cur_val == upd_val or \
-               INVALID_VAL == upd_val or \
-               len(upd_val) <= 0:
-                pass
-            else:
-                param = self._params[n]
-                upd_num += 1
-
-                import yaml
+        for item in items:
+            if(ITEM_TYPE_ECHO == item.type):
                 try:
-                    param_nm = param[KEY_CONFFILE_PARAM_NM]
-                    param_type = type(rospy.get_param(param_nm))
-                    if (param_type is int):
-                        upd_val = int(upd_val)
-                    elif (param_type is float):
-                        upd_val = float(upd_val)
-                    elif (param_type is list):
-                        upd_val = yaml.load(upd_val)
-                    rospy.set_param(param_nm, upd_val)
-                    rospy.loginfo("param_nm=%s val=%s", param_nm, upd_val)
-                    ok_num += 1
-                except (KeyError, ValueError) as e:
-                    rospy.logerr(
-                        "update failed. paramNo=%d cause=%s",
-                        n,
-                        e
-                    )
+                    listened_topics.index(item.topic)
+                    # もうすでに購読済みなので何もしない
+                except ValueError as ve:
+                    # 未購読
+                    listened_topics.append(item.topic)
 
-        if upd_num != ok_num:
-            if not from_save:
-                QMessageBox.critical(self._widget, "エラー", "パラメータの更新に失敗しました。")
-        else:
-            result = True
-        return result
+                    thread = RosTopicListener()
+                    thread._topic = item.topic
+                    self._topic_listeners.append(thread)
+                    thread.received_topic_values.connect(
+                        self.ui.tblMonitor._on_update_topic_values)
+
+                    thread.start()
+                except Except as err:
+                    rospy.logerr("conf file load failed. %s", e)
 
     def _on_exec_save(self):
         """パラメータ保存実行処理"""
+        if(self._prm_writer is not None):
+            QMessageBox.warning(
+                self._widget,
+                "警告",
+                "パラメータ保存実行中です")
+            return
+
+        param_config_items = []
+        for item in self._config_items:
+            if(ITEM_TYPE_NUMBER == item.type or ITEM_TYPE_TEXT == item.type):
+                param_config_items.append(item)
+
+        if(len(self._dump_yaml_file_path) == 0):
+            QMessageBox.information(
+                self._widget,
+                "お知らせ",
+                "保存先が指定されていません")
+            return
+
+        if(len(param_config_items) == 0):
+            QMessageBox.information(
+                self._widget,
+                "お知らせ",
+                "保存対象がありません")
+            return
 
         self._monitor_timer.stop()
         self._widget.setEnabled(False)
 
-        if not self._on_exec_update(True):
-            QMessageBox.critical(self._widget, "エラー", "パラメータの更新と保存に失敗しました。")
-            self._monitor_timer.start()
-            self._widget.setEnabled(True)
-            return
+        self._prm_writer = RosParamWriter()
+        self._prm_writer.work_finished.connect(
+            self._on_param_writer_work_finished)
+        self._prm_writer.finished.connect(self._prm_writer.deleteLater)
+        self._prm_writer.param_config_items = param_config_items
+        self._prm_writer.dump_file_path = self._dump_yaml_file_path
 
-        import rosparam
-        try:
-            rosparam.dump_params(self._dump_yaml_file_path, rospy.get_namespace())
-            QMessageBox.information(self._widget, "お知らせ", "設定を保存しました。")
-        except IOError as e:
-            rospy.logerr("dump failed. %s", e)
-            QMessageBox.critical(self._widget, "エラー", "保存に失敗しました。")
+        self._prm_writer.start()
 
+    def _on_param_writer_work_finished(self, result):
+        self._prm_writer = None
         self._monitor_timer.start()
         self._widget.setEnabled(True)
+
+        if(not result):
+            QMessageBox.warning(
+                self._widget,
+                "警告",
+                "パラメータが正常に保存できませんでした")
+        else:
+            QMessageBox.information(
+                self._widget,
+                "お知らせ",
+                "パラメータを保存しました")
+
+    def _on_topic_publish_invoke(self, topic_nm):
+        try:
+            confirm_msg = "トピック「{}」のパブリッシュを実行しますか？".format(topic_nm)
+            if(not self._showdialog("確認", confirm_msg)):
+                return
+
+            pub = rospy.Publisher(
+                topic_nm,
+                std_msgs.msg.Bool,
+                queue_size=1,
+                latch=True)
+            pub.publish(True)
+
+            QMessageBox.information(
+                self._widget,
+                "お知らせ",
+                "トピック「{}」のパブリッシュを実行しました。".format(topic_nm))
+        except Exception as err:
+            print("err=%s" % err)
+            rospy.logerr(
+                "topic publish failed. topic=%s err=%s",
+                topic_nm, err)
+            QMessageBox.critical(
+                self._widget,
+                "エラー",
+                "トピック「{}」のパブリッシュに失敗しました。".format(topic_nm))
+
+    def _showdialog(self, title, msg):
+        mbox = QMessageBox(self._widget)
+        mbox.setIcon(QMessageBox.Question)
+        mbox.setText(msg)
+        mbox.setWindowTitle(title)
+        mbox.setStandardButtons(QMessageBox.Ok | QMessageBox.Cancel)
+
+        retval = mbox.exec_()
+        return QMessageBox.Ok == retval

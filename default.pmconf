@@ -1,0 +1,10 @@
+"Title:","位相シフト用パラメータ $ROS_NAMESPACE"
+#comment
+"Echo:/turtle1/pose","亀位置X\n亀位置Y\n亀向き\n亀並進速度\n亀角速度"
+#"Echo:/turtle1/pose","亀位置X2\n亀位置Y2\n亀向き2\n亀並進速度2\n亀角速度2"
+"Number:/rovi/camera/Height","カメラ高さ"
+"/rovi/camera/Width","カメラ幅"
+"Text:/rovi/camera/ID","カメラID"
+"Publisher:/rovi/ycam_ctrl/stat","3D撮像"
+"Number:/background_b","亀スイミング背景(青)"
+"Number:/background_b","亀スイミング背景(青2)"
