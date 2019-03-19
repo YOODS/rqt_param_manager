@@ -239,21 +239,16 @@ class ConfigItem():
 
             if(val1.find("/") >= 0):
                 topic_msg_type = val1
-                act = ""
                 if(pre_header_lv == curLv):
-                    act = "same"
                     topic_nm_type_sections.pop()
                     topic_nm_type_sections.append(val2)
                 elif(pre_header_lv > curLv):
-                    act = "down"
                     topic_nm_type_sections = topic_nm_type_sections[:curLv]
                     topic_nm_type_sections.append(val2)
                 else:
-                    act = "up  "
                     topic_nm_type_sections.append(val2)
 
                 pre_header_lv = curLv
-
             else:
                 values = val2.split("=")
                 topic_nm = values[0]
