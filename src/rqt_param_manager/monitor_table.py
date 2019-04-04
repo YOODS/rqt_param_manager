@@ -234,9 +234,9 @@ class MonitorTable(QTableWidget):
     def _invoke_param_set(self, item, val):
         result = False
         try:
-            if(not rospy.has_param(item.param_nm)):
-                rospy.logerr("param name is not found. nm=%s", item.param_nm)
-                return False
+            # if(not rospy.has_param(item.param_nm)):
+            #     rospy.logerr("param name is not found. nm=%s", item.param_nm)
+            #     return False
 
             val = item.get_param_value(val)
             rospy.set_param(item.param_nm, val)

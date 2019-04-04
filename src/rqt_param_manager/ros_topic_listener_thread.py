@@ -16,7 +16,7 @@ class RosTopicListener(QtCore.QThread):
 
     def __init__(self, topic, parent=None):
         QtCore.QThread.__init__(self, parent)
-        self._topic=topic
+        self._topic = topic
 
     def run(self):
         while not self._canceled:
@@ -68,6 +68,11 @@ class RosTopicListener(QtCore.QThread):
 
             key = line[:sidx]
             val = line[sidx+1:].strip()
+            if(len(val) >= 2 and
+                ((val[0] == "\"" and val[-1] == "\"") or
+                 (val[0] == "\'" and val[-1] == "\'"))):
+                val = val[1:]
+                val = val[:-1]
 
             tokens = key.replace('  ', ' ').split(" ")
 
