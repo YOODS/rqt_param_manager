@@ -6,6 +6,7 @@ import os
 import rospy
 import rospkg
 import string
+import re
 
 from qt_gui.plugin import Plugin
 from python_qt_binding import loadUi
@@ -25,6 +26,7 @@ KEY_ENV_ROS_NAMESPACE = "ROS_NAMESPACE"
 ARG_DUMP = "dump"
 ARG_CONF = "conf"
 ARG_COLUMN_WIDTH_LABEL = "col_label_width"
+ARG_WINDOW_SIZE = "window_size"
 WID_PROP_TOPIC_NM = "topic_nm"
 
 # ================ クラス ================
@@ -108,6 +110,22 @@ class RqtParamManagerPlugin(Plugin):
             self._dump_yaml_file_path = args[ARG_DUMP]
         else:
             self.ui.btnSave.setVisible(False)
+
+        if(ARG_WINDOW_SIZE in args):
+            val = args[ARG_WINDOW_SIZE]
+            result = re.match("([\d]+)[xX,-:]([\d]+)", val)
+            if(result):
+                win_width = int(result.group(1))
+                win_height = int(result.group(2))
+
+                parentWid = self._widget.parentWidget()
+                while True:
+                    wkParentWid = parentWid.parentWidget()
+                    if (wkParentWid is None):
+                        break
+                    parentWid = wkParentWid
+
+                parentWid.resize(win_width, win_height)
 
         if(ARG_COLUMN_WIDTH_LABEL in args):
             val = args[ARG_COLUMN_WIDTH_LABEL]
@@ -296,10 +314,10 @@ class RqtParamManagerPlugin(Plugin):
                 latch=True)
             pub.publish(True)
 
-            QMessageBox.information(
-                self._widget,
-                "お知らせ",
-                "トピック「{}」のパブリッシュを実行しました。".format(topic_nm))
+            # QMessageBox.information(
+            #     self._widget,
+            #     "お知らせ",
+            #     "トピック「{}」のパブリッシュを実行しました。".format(topic_nm))
         except Exception as err:
             print("err=%s" % err)
             rospy.logerr(
