@@ -34,6 +34,7 @@ class ConfigItem():
     param_nm = ""
     param_type = ""
     file_option = ""
+    publish_val = True
 
     # def __init__(self):
 
@@ -161,6 +162,12 @@ class ConfigItem():
         else:
             return False
 
+        if( line_token_num > 2):
+            if( line_tokens[2] == "False" or line_tokens[2] == "false" or line_tokens[2] == "0"):
+                self.publish_val = False
+            else:
+                self.publish_val = True
+            
         n = len(type_tokens)
         if(n > 1):
             self.topic = type_tokens[1].strip()

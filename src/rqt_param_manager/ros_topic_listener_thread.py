@@ -6,6 +6,8 @@ from python_qt_binding import QtCore
 import subprocess
 import time
 
+TOPICK_END_TOKEN = "---\n"
+
 
 class RosTopicListener(QtCore.QThread):
     received_topic_values = QtCore.Signal(bool, str, dict)
@@ -13,39 +15,48 @@ class RosTopicListener(QtCore.QThread):
     _topic = ""
     _canceled = False
     _interval = 1
+    _proc = None
 
     def __init__(self, topic, parent=None):
         QtCore.QThread.__init__(self, parent)
         self._topic = topic
+        print("__init__ topic=%s" % self._topic)
 
     def run(self):
+        # print("run topic=%s" % self._topic)
         while not self._canceled:
-            p = subprocess.Popen(
-                ["rostopic", "echo", "-n", "1", self._topic],
+            self._proc = subprocess.Popen(
+                ["rostopic", "echo", self._topic],
                 stdin=subprocess.PIPE,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
                 shell=False)
-            ret = p.wait()
-            if(ret):
-                time.sleep(10)
-                err_str = p.stderr.readlines()
-                rospy.logerr("topic get failed. topic =%s %s" % (
-                    self._topic,
-                    err_str))
-
-                self.received_topic_values.emit(false, self._topic, ())
-            else:
-                lines = p.stdout.readlines()
-                topic_values = self._on_parse_topic_echo(self._topic, lines)
-                self.received_topic_values.emit(
-                    True,
-                    self._topic,
-                    topic_values)
-                if(self._interval > 0):
-                    time.sleep(self._interval)
+            lines = []
+            while not self._canceled:
+                line = self._proc.stdout.readline()
+                print("(%s) line=[%s]" % (
+                    self._topic, line.replace("\n", "\\n")))
+                lines.append(line)
+                if(line == TOPICK_END_TOKEN):
+                    topic_values = self._on_parse_topic_echo(
+                        self._topic, lines)
+                    print("")
+                    print("")
+                    print("topic=%s" % self._topic)
+                    print(topic_values)
+                    print("------------------------------------------")
+                    self.received_topic_values.emit(
+                        True,
+                        self._topic,
+                        topic_values)
+                    lines = []
 
         self.finished.emit()
+
+    def doCancel(self):
+        self._canceled = True
+        if(self._proc is not None and self._proc.poll()):
+            self._proc.kill()
 
     def _on_parse_topic_echo(self, topic, lines):
         topic_values = {}
@@ -55,11 +66,9 @@ class RosTopicListener(QtCore.QThread):
         pre_lv = -1
         pre_header_lv = -1
         for line in lines:
-            if(len(line) == 0 or line[0] == '\n'):
-                continue
 
-            if(line.find("---") == 0):
-                break
+            if(len(line) == 0 or line[0] == '\n' or line == TOPICK_END_TOKEN):
+                continue
 
             sidx = line.find(":")
             if(sidx < 0):
@@ -68,6 +77,7 @@ class RosTopicListener(QtCore.QThread):
 
             key = line[:sidx]
             val = line[sidx+1:].strip()
+            is_header = len(val) == 0
             if(len(val) >= 2 and
                 ((val[0] == "\"" and val[-1] == "\"") or
                  (val[0] == "\'" and val[-1] == "\'"))):
@@ -88,7 +98,7 @@ class RosTopicListener(QtCore.QThread):
 
             key = tokens[curLv]
 
-            if(len(val) == 0):
+            if(is_header):
                 if(pre_header_lv == curLv):
                     sections.pop()
                     sections.append(key)
@@ -108,5 +118,4 @@ class RosTopicListener(QtCore.QThread):
                 topic_values[topicNm] = val
 
             pre_lv = curLv
-
         return topic_values

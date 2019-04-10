@@ -8,6 +8,9 @@ import rospkg
 import string
 import re
 
+# ret_codeとmessage送信時にsleepを使う
+from time import sleep
+
 from qt_gui.plugin import Plugin
 from python_qt_binding import loadUi
 from python_qt_binding.QtGui import *
@@ -154,6 +157,9 @@ class RqtParamManagerPlugin(Plugin):
 
     def shutdown_plugin(self):
         """シャットダウン処理"""
+        for listener in self._topic_listeners:
+            listener.doCancel()
+
         self._monitor_timer.stop()
 
     def _parse_args(self, argv, args):
@@ -242,6 +248,9 @@ class RqtParamManagerPlugin(Plugin):
                         self.ui.tblMonitor._on_update_topic_values)
 
                     thread.start()
+
+                    print "thread start and sleep"
+                    sleep(0.001)
                 except Except as err:
                     rospy.logerr("conf file load failed. %s", e)
 
@@ -301,18 +310,22 @@ class RqtParamManagerPlugin(Plugin):
                 "お知らせ",
                 "パラメータを保存しました")
 
-    def _on_topic_publish_invoke(self, topic_nm):
+    def _on_topic_publish_invoke(self, topic_nm, val):
         try:
             confirm_msg = "トピック「{}」のパブリッシュを実行しますか？".format(topic_nm)
             if(not self._showdialog("確認", confirm_msg)):
                 return
 
-            pub = rospy.Publisher(
-                topic_nm,
-                std_msgs.msg.Bool,
-                queue_size=1,
-                latch=True)
-            pub.publish(True)
+            # pub = rospy.Publisher(
+            #    topic_nm,
+            #    std_msgs.msg.Bool,
+            #    queue_size=1,
+            #    latch=False)
+            # pub.publish(val)
+
+            ret = subprocess.call(
+                ["rostopic", "pub", "-1", topic_nm, "std_msgs/Bool", str(val)])
+            print("ret=%d" % ret)
 
             # QMessageBox.information(
             #     self._widget,

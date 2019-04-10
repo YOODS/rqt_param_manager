@@ -13,6 +13,7 @@ TBL_COL_INPUT = 1
 TBL_COL_ACTION = 2
 INVALID_VAL = "---"
 WID_PROP_TOPIC_NM = "topic_nm"
+WID_PROP_ITEM_IDX = "item_idx"
 
 # ================ クラス一覧 ================
 
@@ -38,7 +39,7 @@ class NotEditableDelegate(QItemDelegate):
 
 class MonitorTable(QTableWidget):
     """UIのメインクラス"""
-    invoke_topic_pub = QtCore.Signal(str)
+    invoke_topic_pub = QtCore.Signal(str, bool)
 
     colLabelWidthRatio = None
     colLabelWidthFixed = None
@@ -181,7 +182,7 @@ class MonitorTable(QTableWidget):
 
                 btn = QPushButton()
                 btn.setText("実行")
-                btn.setProperty(WID_PROP_TOPIC_NM, item.topic)
+                btn.setProperty(WID_PROP_ITEM_IDX, n)
                 btn.clicked.connect(self._on_exec_button_clicked)
                 self.setIndexWidget(model.index(n, TBL_COL_ACTION), btn)
 
@@ -275,8 +276,10 @@ class MonitorTable(QTableWidget):
     def _on_exec_button_clicked(self):
         sender = self.sender()
         if(sender):
-            topic_nm = sender.property(WID_PROP_TOPIC_NM)
-            self.invoke_topic_pub.emit(topic_nm)
+            item_idx = int(sender.property(WID_PROP_ITEM_IDX))
+            config_item = self._config_items[item_idx]
+            self.invoke_topic_pub.emit(
+                config_item.topic, config_item.publish_val)
 
     def _on_update_topic_values(self, result, topic, topic_values):
         model = self.model()
