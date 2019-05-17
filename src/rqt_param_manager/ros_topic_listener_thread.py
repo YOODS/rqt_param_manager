@@ -20,7 +20,7 @@ class RosTopicListener(QtCore.QThread):
     def __init__(self, topic, parent=None):
         QtCore.QThread.__init__(self, parent)
         self._topic = topic
-        print("__init__ topic=%s" % self._topic)
+        # print("__init__ topic=%s" % self._topic)
 
     def run(self):
         # print("run topic=%s" % self._topic)
@@ -34,17 +34,12 @@ class RosTopicListener(QtCore.QThread):
             lines = []
             while not self._canceled:
                 line = self._proc.stdout.readline()
-                print("(%s) line=[%s]" % (
-                    self._topic, line.replace("\n", "\\n")))
+                # print("(%s) line=[%s]" % (
+                #    self._topic, line.replace("\n", "\\n")))
                 lines.append(line)
                 if(line == TOPICK_END_TOKEN):
                     topic_values = self._on_parse_topic_echo(
                         self._topic, lines)
-                    print("")
-                    print("")
-                    print("topic=%s" % self._topic)
-                    print(topic_values)
-                    print("------------------------------------------")
                     self.received_topic_values.emit(
                         True,
                         self._topic,

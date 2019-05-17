@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+import os
 import rospy
 import string
 from python_qt_binding import QtCore
@@ -21,6 +22,32 @@ class RosParamWriter(QtCore.QThread):
     def __init__(self, parent=None):
         QtCore.QThread.__init__(self, parent)
 
+    def _get_save_param_names(self, file_path, param_names):
+        ret = False
+        if(os.path.isfile(file_path)):
+            with open(file_path, "r+") as yf:
+                data = yaml.load(yf)
+                if(data is not None and len(data) > 0):
+                    sections = []
+                    self._recursive_parse_param_names(
+                        data, sections, param_names)
+                    ret = True
+        return ret
+
+    def _recursive_parse_param_names(self, data, sections, param_names):
+        for k, v in data.items():
+            if(type(v) is dict):
+                sections.append(k)
+                self._recursive_parse_param_names(v, sections, param_names)
+                sections.pop()
+            else:
+                key = ""
+                if(len(sections) > 0):
+                    key = "/"
+                key = key + "/".join(sections) + "/" + k
+                param_names.append(key)
+                # print("key=%s" % (key))
+
     def _appendLevel(self, data, keys, lv, val):
         if(len(keys)-1 <= lv):
             data[keys[-1]] = val
@@ -33,9 +60,19 @@ class RosParamWriter(QtCore.QThread):
                 self._appendLevel(data[keys[lv]], keys, lv+1, val)
 
     def run(self):
+
+        save_param_names = []
+        if(not self._get_save_param_names(self.dump_file_path, save_param_names)):
+            self.work_finished.emit(False)
+            return
+
         result = True
+
         param_data_map = {}
         for item in self.param_config_items:
+            if(item.param_nm not in save_param_names):
+                # print("not save target. param_name=%s" % item.param_nm)
+                continue
             try:
                 val = item.get_param_value(rospy.get_param(item.param_nm))
                 tokens = item.param_nm.split("/")

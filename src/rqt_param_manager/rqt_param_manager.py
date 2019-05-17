@@ -262,6 +262,12 @@ class RqtParamManagerPlugin(Plugin):
                 "警告",
                 "パラメータ保存実行中です")
             return
+        if(not os.path.isfile(self._dump_yaml_file_path)):
+            QMessageBox.warning(
+                self._widget,
+                "警告",
+                "出力対象のファイルが見つかりません")
+            return
 
         param_config_items = []
         for item in self._config_items:
