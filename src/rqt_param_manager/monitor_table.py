@@ -10,7 +10,6 @@ from config_item import *
 # ================ 定数一覧 ================
 TBL_COL_LABEL = 0
 TBL_COL_INPUT = 1
-TBL_COL_ACTION = 2
 INVALID_VAL = "---"
 WID_PROP_TOPIC_NM = "topic_nm"
 WID_PROP_ITEM_IDX = "item_idx"
@@ -56,12 +55,11 @@ class MonitorTable(QTableWidget):
         """パラメータテーブル設定処理"""
 
         # 列は3列
-        self.setColumnCount(3)
+        self.setColumnCount(2)
 
         # 列1,2は編集不可
         no_edit_delegate = NotEditableDelegate()
         self.setItemDelegateForColumn(TBL_COL_LABEL, no_edit_delegate)
-        self.setItemDelegateForColumn(TBL_COL_ACTION, no_edit_delegate)
 
         # ヘッダー列の設定
         headerCol1 = QTableWidgetItem()
@@ -69,19 +67,13 @@ class MonitorTable(QTableWidget):
         self.setHorizontalHeaderItem(TBL_COL_LABEL, headerCol1)
 
         headerCol2 = QTableWidgetItem()
-        headerCol2.setText("入力")
+        headerCol2.setText("入出力")
         self.setHorizontalHeaderItem(TBL_COL_INPUT, headerCol2)
-
-        headerCol3 = QTableWidgetItem()
-        headerCol3.setText("ボタン")
-        self.setHorizontalHeaderItem(TBL_COL_ACTION, headerCol3)
 
         header = self.horizontalHeader()
         header.setSectionResizeMode(TBL_COL_LABEL, QHeaderView.Stretch)
         header.setSectionResizeMode(TBL_COL_INPUT, QHeaderView.Fixed)
-        header.setSectionResizeMode(TBL_COL_ACTION, QHeaderView.Fixed)
         self.setColumnWidth(TBL_COL_INPUT, 120)
-        self.setColumnWidth(TBL_COL_ACTION, 120)
 
         self.verticalHeader().hide()
 
@@ -169,22 +161,18 @@ class MonitorTable(QTableWidget):
                 item.param_val = INVALID_VAL
 
             elif(ITEM_TYPE_FILE == item.type):
-                lbl = QLabel()
-                self.setIndexWidget(model.index(n, TBL_COL_INPUT), lbl)
 
                 btn = QPushButton()
                 btn.setText("一覧")
-                self.setIndexWidget(model.index(n, TBL_COL_ACTION), btn)
+                self.setIndexWidget(model.index(n, TBL_COL_INPUT), btn)
 
             elif(ITEM_TYPE_PUBLISHER == item.type):
-                lbl = QLabel()
-                self.setIndexWidget(model.index(n, TBL_COL_INPUT), lbl)
 
                 btn = QPushButton()
                 btn.setText("実行")
                 btn.setProperty(WID_PROP_ITEM_IDX, n)
                 btn.clicked.connect(self._on_exec_button_clicked)
-                self.setIndexWidget(model.index(n, TBL_COL_ACTION), btn)
+                self.setIndexWidget(model.index(n, TBL_COL_INPUT), btn)
 
             else:
                 self.setItem(
@@ -312,14 +300,13 @@ class MonitorTable(QTableWidget):
     def resizeEvent(self, event):
         widWidth = event.size().width()
         widHeight = event.size().height()
-        colActWidth = self.columnWidth(TBL_COL_ACTION)
 
         if(self.colLabelWidthRatio is not None):
             colLabelWidth = widWidth * self.colLabelWidthRatio
-            colInputWidth = widWidth - colLabelWidth - colActWidth
+            colInputWidth = widWidth - colLabelWidth
         elif(self.colLabelWidthFixed is not None):
             colLabelWidth = self.colLabelWidthFixed
-            colInputWidth = widWidth - colLabelWidth - colActWidth
+            colInputWidth = widWidth - colLabelWidth
         else:
             super(MonitorTable, self).resizeEvent(event)
             return
