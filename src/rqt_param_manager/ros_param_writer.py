@@ -13,8 +13,8 @@ class RosParamWriter(QtCore.QThread):
     work_finished = QtCore.Signal(bool)
 
     param_config_items = []
-
     dump_file_path = ""
+    param_data = {}
 
     def append(self, item):
         self.param_config_items.append(item)
@@ -26,11 +26,11 @@ class RosParamWriter(QtCore.QThread):
         ret = False
         if(os.path.isfile(file_path)):
             with open(file_path, "r+") as yf:
-                data = yaml.load(yf)
-                if(data is not None and len(data) > 0):
+                self.param_data = yaml.load(yf)
+                if(self.param_data is not None and len(self.param_data) > 0):
                     sections = []
                     self._recursive_parse_param_names(
-                        data, sections, param_names)
+                        self.param_data, sections, param_names)
                     ret = True
         return ret
 
@@ -62,19 +62,21 @@ class RosParamWriter(QtCore.QThread):
     def run(self):
 
         save_param_names = []
-        if(not self._get_save_param_names(self.dump_file_path, save_param_names)):
+        if(not self._get_save_param_names(self.dump_file_path,
+                                          save_param_names)):
             self.work_finished.emit(False)
             return
 
         result = True
 
-        param_data_map = {}
+        save_param_data = self.param_data
         for item in self.param_config_items:
-            if(item.param_nm not in save_param_names):
-                # print("not save target. param_name=%s" % item.param_nm)
-                continue
             try:
-                val = item.get_param_value(rospy.get_param(item.param_nm))
+                if(item.param_nm not in save_param_names):
+                    val = ""
+                else:
+                    val = item.get_param_value(rospy.get_param(item.param_nm))
+
                 tokens = item.param_nm.split("/")
                 if(len(tokens) < 2 or len(tokens[0]) != 0):
                     result = False
@@ -84,13 +86,13 @@ class RosParamWriter(QtCore.QThread):
                     break
                 tokens = tokens[1:]
 
-                self._appendLevel(param_data_map, tokens, 0, val)
+                self._appendLevel(save_param_data, tokens, 0, val)
             except Exception as err:
                 result = False
 
         try:
             with open(self.dump_file_path, "w") as yf:
-                yaml.dump(param_data_map, yf, default_flow_style=False)
+                yaml.dump(save_param_data, yf, default_flow_style=False)
         except Exception as err:
             rospy.logerr(
                 "param data save failed. path=%s. cause=%s",
